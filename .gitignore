@@ -1,0 +1,32 @@
+# Local credentials and environments
+.env
+.env.*
+!.env.example
+.venv/
+.idea/
+
+# Python caches and test artefacts
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+*.log
+
+# Generated artefacts and local research data
+outputs/
+data/market/
+data/processed/
+data/news/raw/
+data/news/processed/
+data/models/
+data/neo4j/
+
+# Superseded local inputs
+data/config/company_candidates.csv
+
+# Dissertation drafts and internal working notes
+docs/
+*.docx
+*.xlsx
+/*_GUIDE_CN.md

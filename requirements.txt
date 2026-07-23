@@ -1,0 +1,8 @@
+pandas==2.2.3
+PyYAML==6.0.3
+python-dotenv==1.1.1
+requests==2.32.3
+neo4j==6.2.0
+torch==2.13.0
+transformers==5.14.1
+sentencepiece==0.2.2

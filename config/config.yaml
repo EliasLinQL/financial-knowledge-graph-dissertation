@@ -1,0 +1,397 @@
+project:
+  name: financial_knowledge_graph
+  mode: prototype
+
+study:
+  sample_label: top25_12m
+  news_start_date: "2025-07-01"
+  news_end_date: "2026-06-30"
+
+company_selection:
+  ranking_basis: current_market_cap
+  ranking_snapshot_date: "2026-07-23"
+  ranking_source_name: MarketCapWatch
+  ranking_source_url: "https://www.marketcapwatch.com/zh/"
+  ranking_source_file: "data/config/marketcapwatch_top40_2026-07-23.csv"
+  candidate_file: "data/config/company_candidates_top25_2026-07-23.csv"
+  target_company_count: 25
+  market_eligible_pool_count: 35
+  replacement_rule: next_highest_ranked_eligible_company
+  news_coverage:
+    minimum_accepted_articles: 12
+    minimum_active_months: 6
+    pool_processed_output_directory: "data/news/processed/coverage_pool_top25_12m"
+
+market_data:
+  source: twelvedata
+  interval: "1day"
+  download_start_date: "2025-06-15"
+  end_date_inclusive: "2026-07-15"
+  save_downloaded_data: true
+  output_directory: "data/market/twelvedata_top25_12m"
+  use_cached_data: true
+  request_delay_seconds: 8.0
+  max_rate_limit_retries: 1
+  rate_limit_backoff_seconds: 65
+  max_network_retries: 2
+  network_backoff_seconds: 10
+
+  twelvedata:
+    base_url: "https://api.twelvedata.com/time_series"
+    api_key_environment_variable: "TWELVE_DATA_API_KEY"
+    timeout_seconds: 30
+    outputsize: 5000
+
+  validation:
+    required_columns:
+      - Open
+      - High
+      - Low
+      - Close
+      - Volume
+    minimum_rows: 250
+    max_start_delay_calendar_days: 10
+    max_end_delay_calendar_days: 7
+    max_internal_gap_calendar_days: 10
+    max_missing_ratio: 0.02
+
+event_analysis:
+  event_windows_trading_days:
+    - 1
+    - 3
+    - 7
+  default_event_type: corporate_event
+  event_type_priority:
+    - regulatory_event
+    - geopolitical_event
+    - macroeconomic_event
+    - commodity_event
+    - market_wide_event
+    - corporate_event
+  headline_keyword_weight: 3
+  trail_keyword_weight: 2
+  body_keyword_weight: 1
+  maximum_body_keyword_hits: 3
+  section_hint_weight: 1
+  minimum_recommended_score: 3
+  minimum_product_only_score: 5
+  relationship_focus_weights:
+    headline_alias: 4
+    trail_alias: 3
+    keyword_same_sentence: 3
+    query_returned: 1
+    core_alias_evidence: 1
+  minimum_core_relationship_score: 4
+  minimum_product_relationship_score: 6
+  high_confidence_score: 7
+  medium_confidence_score: 4
+  market_timezone: "America/New_York"
+  market_close_local_time: "16:00"
+  include_only_recommended_events_for_market_alignment: true
+  low_relevance_sections:
+    - Books
+    - Crosswords
+    - Culture
+    - Fashion
+    - Film
+    - Football
+    - Games
+    - Life and style
+    - Music
+    - Sport
+    - Television & radio
+    - The Filter
+    - The Filter US
+  section_event_type_hints:
+    Business: corporate_event
+    Technology: corporate_event
+    Money: macroeconomic_event
+    Politics: regulatory_event
+    Law: regulatory_event
+    World news: geopolitical_event
+    US news: geopolitical_event
+    Environment: commodity_event
+  event_keyword_rules:
+    corporate_event:
+      - acquisition
+      - acquire
+      - merger
+      - takeover
+      - earnings
+      - profit
+      - profits
+      - revenue
+      - sales
+      - forecast
+      - investment
+      - invest
+      - spending
+      - launch
+      - launches
+      - partnership
+      - deal
+      - contract
+      - layoffs
+      - job cuts
+      - staff reductions
+      - chief executive
+      - CEO
+      - board
+      - outage
+      - cyberattack
+      - data breach
+      - bankruptcy
+      - restructuring
+    regulatory_event:
+      - regulator
+      - regulation
+      - regulatory
+      - antitrust
+      - competition authority
+      - investigation
+      - lawsuit
+      - sued
+      - court
+      - legal
+      - law
+      - legislation
+      - ban
+      - banned
+      - approval
+      - compliance
+      - privacy
+      - tax
+      - tariff
+      - tariffs
+      - fine
+      - penalty
+    geopolitical_event:
+      - war
+      - warfare
+      - military
+      - conflict
+      - sanctions
+      - sanction
+      - missile
+      - drone strike
+      - invasion
+      - ceasefire
+      - diplomatic
+      - election
+      - geopolitical
+      - nato
+    macroeconomic_event:
+      - inflation
+      - interest rate
+      - interest rates
+      - central bank
+      - federal reserve
+      - bank of england
+      - GDP
+      - unemployment
+      - recession
+      - economic growth
+      - cost of living
+      - consumer confidence
+      - monetary policy
+      - fiscal policy
+    commodity_event:
+      - oil price
+      - oil prices
+      - crude oil
+      - natural gas
+      - gas price
+      - energy price
+      - gold price
+      - copper price
+      - commodity
+      - commodities
+      - supply disruption
+    market_wide_event:
+      - stock market
+      - global markets
+      - wall street
+      - FTSE 100
+      - S&P 500
+      - Nasdaq
+      - market sell-off
+      - market rally
+      - shares fall
+      - shares rise
+      - stocks fall
+      - stocks rise
+
+nlp_enrichment:
+  enabled: true
+  use_for_downstream: true
+  model_name: cross-encoder/nli-deberta-v3-xsmall
+  model_revision: main
+  model_cache_directory: data/models/huggingface
+  prediction_cache_file: data/news/processed/nlp_prediction_cache.json
+  device: 0
+  batch_size: 16
+  event_text_maximum_characters: 1800
+  maximum_evidence_sentences_per_relationship: 3
+  evidence_maximum_characters: 700
+  enable_event_type_override: false
+  event_type_override_threshold: 0.45
+  event_confidence_threshold: 0.35
+  confirmation_threshold: 0.35
+  enable_nlp_rescue: false
+  rescue_threshold: 0.65
+  strong_rule_focus_score: 7
+  minimum_rescue_focus_score: 2
+  accepted_relationship_labels:
+    - direct_subject
+    - direct_target
+    - materially_affected
+
+neo4j_import:
+  output_directory: "data/neo4j/import_top25_12m"
+  selection_policy: recommended_for_graph
+
+neo4j_connection:
+  uri: "neo4j://127.0.0.1:7687"
+  database: neo4j
+  user: neo4j
+  password_environment_variable: NEO4J_PASSWORD
+  query_output_directory: "data/neo4j/analysis_top25_12m"
+  evidence_limit: 1500
+
+news_data:
+  source: guardian
+  base_url: "https://content.guardianapis.com/search"
+  api_key_environment_variable: "GUARDIAN_API_KEY"
+  collection_modes:
+    test:
+      window_strategy: full_period
+      per_company_per_window: 5
+      global_unique_article_limit: 175
+      order_by: relevance
+      output_stem: guardian_top25_12m_test
+    full:
+      window_strategy: monthly
+      per_company_per_window: 8
+      global_unique_article_limit: 3400
+      order_by: relevance
+      output_stem: guardian_top25_12m
+  show_fields:
+    - headline
+    - trailText
+    - bodyText
+    - byline
+    - wordcount
+    - shortUrl
+  show_tags: all
+  request_timeout_seconds: 30
+  request_delay_seconds: 1.0
+  max_retries: 2
+  retry_backoff_seconds: 5
+  maximum_logical_requests_per_run: 440
+  maximum_api_attempts_per_run: 475
+  use_cached_responses: true
+  company_query_overrides:
+    C001: "NVIDIA"
+    C002: '"Apple Inc" OR iPhone OR iPad OR MacBook OR "App Store"'
+    C003: 'Google OR "Alphabet Inc" OR "Google parent"'
+    C004: "Microsoft"
+    # Do not use bare AWS: Guardian search can treat it as a substring of
+    # unrelated words, and AWS is also an acronym for railway warning systems.
+    C005: '"Amazon.com" OR "Amazon Web Services" OR "Amazon Prime"'
+    C007: 'TSMC OR "Taiwan Semiconductor"'
+    C008: "Broadcom"
+    C009: '"Meta Platforms" OR Facebook OR Instagram OR WhatsApp'
+    C010: '"Saudi Aramco" OR "Saudi Arabian Oil Company"'
+    C011: "Tesla"
+    C012: '"Samsung Electronics"'
+    C013: '"Berkshire Hathaway"'
+    C014: '"Eli Lilly"'
+    C015: '"SK hynix" OR "SK Hynix"'
+    C016: '"Micron Technology" OR Micron'
+    C017: 'JPMorgan OR "JP Morgan" OR "JPMorgan Chase"'
+    C018: "Walmart"
+    C019: '"Advanced Micro Devices" OR AMD'
+    C020: "ASML"
+    C021: '"Visa Inc" OR "Visa payments"'
+    C022: '"Exxon Mobil" OR ExxonMobil'
+    C023: '"Johnson & Johnson"'
+    C024: "Intel"
+    C025: "Tencent OR WeChat"
+    C026: "Mastercard"
+    C027: "AbbVie"
+    C028: "Cisco"
+    C029: '"Applied Materials"'
+    C030: '"Bank of America"'
+    C031: "Costco"
+    C032: '"Caterpillar Inc" OR "Caterpillar shares"'
+    C033: '"Lam Research"'
+    C034: 'UnitedHealth OR UnitedHealthcare'
+    C035: "Chevron"
+    C036: '"Industrial and Commercial Bank of China" OR ICBC'
+    C037: '"Oracle Corp" OR "Oracle Corporation"'
+    C038: '"GE Aerospace" OR "General Electric"'
+    C039: "HSBC"
+    C040: '"Coca-Cola" OR "Coca Cola"'
+  alias_matching:
+    # Product/platform names are useful evidence but are kept separate from
+    # legal/company-name evidence in prepare_guardian_news.py.
+    additional_aliases_by_company:
+      C002:
+        - iPhone
+        - iPad
+        - MacBook
+        - App Store
+      C003:
+        - Alphabet Inc
+        - Google parent
+      C005:
+        - Amazon Web Services
+        - Amazon Prime
+      C009:
+        - Instagram
+        - WhatsApp
+      C025:
+        - WeChat
+    product_aliases_by_company:
+      C002:
+        - iPhone
+        - iPad
+        - MacBook
+        - App Store
+      C005:
+        - Amazon Web Services
+        - Amazon Prime
+      C009:
+        - Instagram
+        - WhatsApp
+      C025:
+        - WeChat
+    # A case-sensitive Apple match excludes ordinary apple/apples references.
+    case_sensitive_aliases_by_company:
+      C002:
+        - Apple
+      C021:
+        - Visa
+      C024:
+        - Intel
+      C032:
+        - Caterpillar
+      C037:
+        - Oracle
+    # Berkshire alone is a UK place name and is not a reliable company alias.
+    excluded_aliases_by_company:
+      C013:
+        - Berkshire
+      C038:
+        - GE
+  raw_response_root: "data/news/raw/guardian_responses_top25_12m"
+  raw_output_directory: "data/news/raw"
+  processed_output_directory: "data/news/processed"
+
+outputs:
+  selection_report: "data/processed/top25_12m/company_selection_report.csv"
+  market_eligible_companies: "data/processed/top25_12m/market_eligible_companies.csv"
+  selected_companies: "data/processed/top25_12m/selected_companies.csv"
+  partial_selection: "data/processed/top25_12m/selected_companies_partial.csv"
+  news_coverage_report: "data/processed/top25_12m/news_coverage_selection_report.csv"
+  news_coverage_partial_selection: "data/processed/top25_12m/news_coverage_partial_selection.csv"
