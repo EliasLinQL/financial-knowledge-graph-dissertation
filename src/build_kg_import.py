@@ -46,6 +46,11 @@ EVENT_COLUMNS = {
     "publication_timestamp",
     "event_title",
     "event_summary",
+    "evidence_span",
+    "evidence_source",
+    "event_granularity",
+    "event_span_hash",
+    "source_headline",
     "event_type",
     "event_score",
     "classification_confidence",
@@ -59,6 +64,18 @@ EVENT_LINK_COLUMNS = {
     "evidence_sentence",
     "relationship_focus_score",
     "recommended_for_graph",
+}
+EVENT_MENTION_COLUMNS = {
+    "canonical_event_id",
+    "source_event_id",
+    "article_id",
+    "event_date",
+    "publication_timestamp",
+    "event_title",
+    "evidence_span",
+    "similarity_to_representative",
+    "is_representative",
+    "deduplication_method",
 }
 MARKET_WINDOW_COLUMNS = {
     "market_link_id",
@@ -75,8 +92,8 @@ MARKET_WINDOW_COLUMNS = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Create graph-ready Neo4j CSV files from the automatically filtered "
-            "Guardian event pipeline. Manual review decisions are not required."
+            "Create graph-ready Neo4j CSV files from filtered Guardian event "
+            "records."
         )
     )
     parser.add_argument(
@@ -96,6 +113,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--article-links-csv", type=Path)
     parser.add_argument("--events-csv", type=Path)
     parser.add_argument("--event-links-csv", type=Path)
+    parser.add_argument(
+        "--event-mentions-csv",
+        type=Path,
+        help="Optional canonical Event-to-source mention provenance CSV.",
+    )
     parser.add_argument("--market-windows-csv", type=Path)
     parser.add_argument(
         "--output-directory",
@@ -314,6 +336,12 @@ SET n.event_date = date(row.event_date),
     n.publication_timestamp = datetime(row.publication_timestamp),
     n.title = row.event_title,
     n.summary = row.event_summary,
+    n.evidence_span = row.evidence_span,
+    n.evidence_source = row.evidence_source,
+    n.evidence_position = toInteger(row.evidence_position),
+    n.event_granularity = row.event_granularity,
+    n.event_span_hash = row.event_span_hash,
+    n.source_headline = row.source_headline,
     n.event_type = row.event_type,
     n.rule_event_type = row.rule_event_type,
     n.event_score = toInteger(row.event_score),
@@ -330,7 +358,18 @@ SET n.event_date = date(row.event_date),
     n.hybrid_decision_reason = row.hybrid_decision_reason,
     n.section_name = row.section_name,
     n.source_method = row.source_method,
-    n.web_url = row.web_url;
+    n.web_url = row.web_url,
+    n.representative_event_id = row.representative_event_id,
+    n.source_event_count = toInteger(row.source_event_count),
+    n.source_article_count = toInteger(row.source_article_count),
+    n.source_event_ids = row.source_event_ids,
+    n.source_article_ids = row.source_article_ids,
+    n.first_publication_timestamp = datetime(row.first_publication_timestamp),
+    n.last_publication_timestamp = datetime(row.last_publication_timestamp),
+    n.deduplication_method = row.deduplication_method,
+    n.deduplication_min_similarity = toFloat(row.deduplication_min_similarity),
+    n.deduplication_max_date_span_days =
+        toInteger(row.deduplication_max_date_span_days);
 
 LOAD CSV WITH HEADERS FROM 'file:///market_observations.csv' AS row
 MERGE (n:MarketObservation {market_observation_id: row.market_observation_id})
@@ -365,7 +404,19 @@ MERGE (i)-[:PART_OF]->(s);
 LOAD CSV WITH HEADERS FROM 'file:///article_reports_event.csv' AS row
 MATCH (a:Article {article_id: row.article_id})
 MATCH (e:Event {event_id: row.event_id})
-MERGE (a)-[:REPORTS]->(e);
+MERGE (a)-[r:REPORTS]->(e)
+SET r.source_event_id = row.source_event_id,
+    r.source_event_date = date(row.source_event_date),
+    r.source_publication_timestamp =
+        datetime(row.source_publication_timestamp),
+    r.source_event_title = row.source_event_title,
+    r.source_evidence_span = row.source_evidence_span,
+    r.source_evidence_source = row.source_evidence_source,
+    r.source_event_granularity = row.source_event_granularity,
+    r.similarity_to_representative =
+        toFloat(row.similarity_to_representative),
+    r.is_representative = toBoolean(row.is_representative),
+    r.deduplication_method = row.deduplication_method;
 
 LOAD CSV WITH HEADERS FROM 'file:///article_mentions_company.csv' AS row
 MATCH (a:Article {article_id: row.article_id})
@@ -389,14 +440,27 @@ SET r.link_status = row.link_status,
     r.headline_aliases = row.headline_aliases,
     r.trail_aliases = row.trail_aliases,
     r.event_keyword_same_sentence = row.event_keyword_same_sentence,
+    r.nlp_raw_relationship_label = row.nlp_raw_relationship_label,
     r.nlp_relationship_label = row.nlp_relationship_label,
     r.nlp_relationship_score = toFloat(row.nlp_relationship_score),
     r.nlp_positive_probability = toFloat(row.nlp_positive_probability),
     r.nlp_relationship_scores = row.nlp_relationship_scores,
     r.nlp_model_name = row.nlp_model_name,
     r.nlp_model_revision = row.nlp_model_revision,
+    r.nlp_role_calibration_reason = row.nlp_role_calibration_reason,
     r.hybrid_decision_reason = row.hybrid_decision_reason,
-    r.source_method = row.source_method;
+    r.source_method = row.source_method,
+    r.source_event_id = row.source_event_id,
+    r.source_article_id = row.source_article_id,
+    r.relationship_publication_timestamp = CASE
+        WHEN trim(row.relationship_publication_timestamp) = '' THEN null
+        ELSE datetime(row.relationship_publication_timestamp)
+    END,
+    r.source_relationship_count = toInteger(row.source_relationship_count),
+    r.source_event_ids = row.source_event_ids,
+    r.source_article_ids = row.source_article_ids,
+    r.deduplicated_relationship =
+        toBoolean(row.deduplicated_relationship);
 
 LOAD CSV WITH HEADERS FROM 'file:///event_has_market_observation.csv' AS row
 MATCH (e:Event {event_id: row.event_id})
@@ -420,21 +484,31 @@ def main() -> int:
     )
     stem = config["news_data"]["collection_modes"][args.mode]["output_stem"]
     nlp_config = config.get("nlp_enrichment", {})
+    dedup_config = config.get("event_deduplication", {})
     use_nlp_inputs = bool(
         isinstance(nlp_config, dict)
         and nlp_config.get("enabled", False)
         and nlp_config.get("use_for_downstream", False)
     )
-    event_filename = (
-        f"{stem}_event_candidates_nlp.csv"
-        if use_nlp_inputs
-        else f"{stem}_event_candidates.csv"
+    use_deduplicated_inputs = bool(
+        isinstance(dedup_config, dict)
+        and dedup_config.get("enabled", False)
+        and dedup_config.get("use_for_downstream", False)
     )
-    event_link_filename = (
-        f"{stem}_event_company_links_nlp.csv"
-        if use_nlp_inputs
-        else f"{stem}_event_company_links.csv"
-    )
+    if use_deduplicated_inputs:
+        event_filename = f"{stem}_canonical_events.csv"
+        event_link_filename = f"{stem}_canonical_event_company_links.csv"
+    else:
+        event_filename = (
+            f"{stem}_event_candidates_nlp.csv"
+            if use_nlp_inputs
+            else f"{stem}_event_candidates.csv"
+        )
+        event_link_filename = (
+            f"{stem}_event_company_links_nlp.csv"
+            if use_nlp_inputs
+            else f"{stem}_event_company_links.csv"
+        )
 
     company_path = resolve_path(
         project_root,
@@ -457,6 +531,11 @@ def main() -> int:
         project_root,
         args.event_links_csv or processed_news / event_link_filename,
     )
+    event_mentions_path = resolve_path(
+        project_root,
+        args.event_mentions_csv
+        or processed_news / f"{stem}_event_mentions.csv",
+    )
     market_path = resolve_path(
         project_root,
         args.market_windows_csv or processed_news / f"{stem}_event_market_windows.csv",
@@ -473,6 +552,11 @@ def main() -> int:
     article_links_frame = read_csv(article_link_path, "Clean article-company table")
     events_frame = read_csv(event_path, "Event candidate table")
     event_links_frame = read_csv(event_link_path, "Event-company table")
+    event_mentions_frame = (
+        read_csv(event_mentions_path, "Event mention provenance table")
+        if use_deduplicated_inputs
+        else pd.DataFrame()
+    )
     market_frame = read_csv(market_path, "Event-market-window table")
 
     require_columns(companies_frame, COMPANY_COLUMNS, "Selected-company table")
@@ -482,6 +566,12 @@ def main() -> int:
     )
     require_columns(events_frame, EVENT_COLUMNS, "Event candidate table")
     require_columns(event_links_frame, EVENT_LINK_COLUMNS, "Event-company table")
+    if use_deduplicated_inputs:
+        require_columns(
+            event_mentions_frame,
+            EVENT_MENTION_COLUMNS,
+            "Event mention provenance table",
+        )
     require_columns(market_frame, MARKET_WINDOW_COLUMNS, "Event-market-window table")
 
     analysis_ready_mask = articles_frame["analysis_ready"].map(parse_bool)
@@ -508,10 +598,21 @@ def main() -> int:
                 set(selected_events_frame["event_id"])
             )
         ].copy()
-        selection_policy = "automatic_recommended_for_graph"
+        selection_policy = (
+            "automatic_recommended_canonical_events"
+            if use_deduplicated_inputs
+            else "automatic_recommended_for_graph"
+        )
 
     selected_event_ids = set(selected_events_frame["event_id"])
-    selected_article_ids = set(selected_events_frame["article_id"])
+    if use_deduplicated_inputs:
+        selected_event_mentions_frame = event_mentions_frame[
+            event_mentions_frame["canonical_event_id"].isin(selected_event_ids)
+        ].copy()
+        selected_article_ids = set(selected_event_mentions_frame["article_id"])
+    else:
+        selected_event_mentions_frame = pd.DataFrame()
+        selected_article_ids = set(selected_events_frame["article_id"])
     selected_company_ids = set(companies_frame["company_id"])
     selected_event_company_pairs = set(
         zip(
@@ -543,6 +644,15 @@ def main() -> int:
             "Selected events reference missing analysis-ready articles: "
             + ", ".join(sorted(missing_articles)[:10])
         )
+    if use_deduplicated_inputs:
+        missing_canonical_events = selected_event_ids - set(
+            selected_event_mentions_frame["canonical_event_id"]
+        )
+        if missing_canonical_events:
+            raise ValueError(
+                "Canonical Events have no source mention provenance: "
+                + ", ".join(sorted(missing_canonical_events)[:10])
+            )
     missing_event_companies = set(selected_event_links_frame["company_id"]) - selected_company_ids
     if missing_event_companies:
         raise ValueError(
@@ -653,6 +763,14 @@ def main() -> int:
                 "publication_timestamp": record(row, "publication_timestamp"),
                 "event_title": record(row, "event_title"),
                 "event_summary": record(row, "event_summary"),
+                "evidence_span": record(row, "evidence_span"),
+                "evidence_source": record(row, "evidence_source"),
+                "evidence_position": integer_text(
+                    row.get("evidence_position", "")
+                ),
+                "event_granularity": record(row, "event_granularity"),
+                "event_span_hash": record(row, "event_span_hash"),
+                "source_headline": record(row, "source_headline"),
                 "event_type": record(row, "event_type"),
                 "rule_event_type": record(row, "rule_event_type")
                 or record(row, "event_type"),
@@ -672,16 +790,96 @@ def main() -> int:
                 "hybrid_decision_reason": record(row, "hybrid_decision_reason"),
                 "section_name": record(row, "section_name"),
                 "source_method": (
-                    "hybrid_rule_nli_event_pipeline"
+                    "canonical_cross_article_event_pipeline"
+                    if use_deduplicated_inputs
+                    else "hybrid_rule_nli_event_pipeline"
                     if use_nlp_inputs
                     else "rule_based_guardian_event_pipeline"
                 ),
                 "web_url": record(row, "web_url"),
+                "representative_event_id": record(
+                    row, "representative_event_id"
+                )
+                or event_id,
+                "source_event_count": integer_text(
+                    row.get("source_event_count", "1")
+                ),
+                "source_article_count": integer_text(
+                    row.get("source_article_count", "1")
+                ),
+                "source_event_ids": record(row, "source_event_ids"),
+                "source_article_ids": record(row, "source_article_ids"),
+                "first_publication_timestamp": record(
+                    row, "first_publication_timestamp"
+                )
+                or record(row, "publication_timestamp"),
+                "last_publication_timestamp": record(
+                    row, "last_publication_timestamp"
+                )
+                or record(row, "publication_timestamp"),
+                "deduplication_method": record(row, "deduplication_method")
+                or "singleton",
+                "deduplication_min_similarity": record(
+                    row, "deduplication_min_similarity"
+                )
+                or "1",
+                "deduplication_max_date_span_days": integer_text(
+                    row.get("deduplication_max_date_span_days", "0")
+                ),
             }
         )
-        article_event_rows.append(
-            {"article_id": article_id, "event_id": event_id}
-        )
+        if not use_deduplicated_inputs:
+            article_event_rows.append(
+                {
+                    "article_id": article_id,
+                    "event_id": event_id,
+                    "source_event_id": event_id,
+                    "source_event_date": record(row, "event_date"),
+                    "source_publication_timestamp": record(
+                        row, "publication_timestamp"
+                    ),
+                    "source_event_title": record(row, "event_title"),
+                    "source_evidence_span": record(row, "evidence_span"),
+                    "source_evidence_source": record(row, "evidence_source"),
+                    "source_event_granularity": record(
+                        row, "event_granularity"
+                    ),
+                    "similarity_to_representative": "1",
+                    "is_representative": "true",
+                    "deduplication_method": "singleton",
+                }
+            )
+
+    if use_deduplicated_inputs:
+        for _, row in selected_event_mentions_frame.sort_values(
+            ["canonical_event_id", "article_id", "source_event_id"]
+        ).iterrows():
+            article_event_rows.append(
+                {
+                    "article_id": record(row, "article_id"),
+                    "event_id": record(row, "canonical_event_id"),
+                    "source_event_id": record(row, "source_event_id"),
+                    "source_event_date": record(row, "event_date"),
+                    "source_publication_timestamp": record(
+                        row, "publication_timestamp"
+                    ),
+                    "source_event_title": record(row, "event_title"),
+                    "source_evidence_span": record(row, "evidence_span"),
+                    "source_evidence_source": record(row, "evidence_source"),
+                    "source_event_granularity": record(
+                        row, "event_granularity"
+                    ),
+                    "similarity_to_representative": record(
+                        row, "similarity_to_representative"
+                    ),
+                    "is_representative": bool_text(
+                        row.get("is_representative", "")
+                    ),
+                    "deduplication_method": record(
+                        row, "deduplication_method"
+                    ),
+                }
+            )
 
     article_company_rows: list[dict[str, str]] = []
     for _, row in selected_article_links_frame.sort_values(
@@ -720,6 +918,9 @@ def main() -> int:
                 "event_keyword_same_sentence": record(
                     row, "event_keyword_same_sentence"
                 ),
+                "nlp_raw_relationship_label": record(
+                    row, "nlp_raw_relationship_label"
+                ),
                 "nlp_relationship_label": record(row, "nlp_relationship_label"),
                 "nlp_relationship_score": record(row, "nlp_relationship_score"),
                 "nlp_positive_probability": record(
@@ -730,13 +931,33 @@ def main() -> int:
                 ),
                 "nlp_model_name": record(row, "nlp_model_name"),
                 "nlp_model_revision": record(row, "nlp_model_revision"),
+                "nlp_role_calibration_reason": record(
+                    row, "nlp_role_calibration_reason"
+                ),
                 "hybrid_decision_reason": record(
                     row, "hybrid_decision_reason"
                 ),
                 "source_method": (
-                    "hybrid_rule_nli_evidence_scoring"
+                    "canonical_cross_article_relationship_aggregation"
+                    if use_deduplicated_inputs
+                    else "hybrid_rule_nli_evidence_scoring"
                     if use_nlp_inputs
                     else "rule_based_evidence_scoring"
+                ),
+                "source_event_id": record(row, "source_event_id")
+                or record(row, "event_id"),
+                "source_article_id": record(row, "source_article_id")
+                or record(row, "article_id"),
+                "relationship_publication_timestamp": record(
+                    row, "relationship_publication_timestamp"
+                ),
+                "source_relationship_count": integer_text(
+                    row.get("source_relationship_count", "1")
+                ),
+                "source_event_ids": record(row, "source_event_ids"),
+                "source_article_ids": record(row, "source_article_ids"),
+                "deduplicated_relationship": bool_text(
+                    row.get("deduplicated_relationship", "")
                 ),
             }
         )
@@ -978,6 +1199,16 @@ def main() -> int:
             "details": str(event_link_path),
         },
     ]
+    if use_deduplicated_inputs:
+        report_rows.append(
+            {
+                "section": "source",
+                "metric": "event_mention_provenance",
+                "value": str(len(event_mentions_frame)),
+                "status": "info",
+                "details": str(event_mentions_path),
+            }
+        )
     report_rows.extend(
         {
             "section": "nodes",

@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.enrich_events_nlp import (
     Prediction,
+    calibrate_relationship_role,
     choose_relation_prediction,
     decide_hybrid_relationship,
     evidence_candidates,
@@ -58,7 +59,135 @@ class EnrichEventsNlpTests(unittest.TestCase):
         candidates = evidence_candidates(article, link, maximum=3, maximum_chars=200)
 
         self.assertEqual(candidates[0], "Apple faces an inquiry.")
-        self.assertEqual(len(candidates), 3)
+        self.assertEqual(len(candidates), 1)
+
+    def test_same_span_role_calibration_recognises_company_subject(self) -> None:
+        raw = Prediction(
+            "direct_target",
+            0.62,
+            {"direct_target": 0.62, "direct_subject": 0.38},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Taiwan Semiconductor Manufacturing Company",
+            ["TSMC"],
+            "TSMC said it expects robust artificial intelligence demand to continue.",
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "direct_subject")
+        self.assertEqual(reason, "grammar_company_is_subject")
+
+    def test_same_span_role_calibration_recognises_company_target(self) -> None:
+        raw = Prediction(
+            "direct_subject",
+            0.58,
+            {"direct_subject": 0.58, "direct_target": 0.42},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Apple Inc.",
+            ["Apple"],
+            "Apple was fined by the regulator for privacy violations.",
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "direct_target")
+        self.assertEqual(reason, "grammar_company_is_target")
+
+    def test_role_calibration_recognises_plural_company_subject(self) -> None:
+        raw = Prediction(
+            "incidental_mention",
+            0.71,
+            {"incidental_mention": 0.71, "direct_subject": 0.29},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Broadcom Inc.",
+            ["Broadcom"],
+            (
+                "Broadcom are leading the Nasdaq fallers after its latest "
+                "outlook missed forecasts."
+            ),
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "direct_subject")
+        self.assertEqual(reason, "grammar_company_is_subject")
+
+    def test_role_calibration_recognises_company_representative(self) -> None:
+        raw = Prediction(
+            "incidental_mention",
+            0.67,
+            {"incidental_mention": 0.67, "direct_subject": 0.33},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Broadcom Inc.",
+            ["Broadcom"],
+            (
+                "Broadcom's chief executive Hock Tan told investors that the "
+                "company did not expect much in 2026."
+            ),
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "direct_subject")
+        self.assertEqual(reason, "grammar_company_representative_is_subject")
+
+    def test_role_calibration_recognises_active_clause_target(self) -> None:
+        raw = Prediction(
+            "incidental_mention",
+            0.64,
+            {"incidental_mention": 0.64, "direct_target": 0.36},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Tencent Holdings Limited",
+            ["Tencent"],
+            "Sony is suing Tencent for copyright and trademark infringement.",
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "direct_target")
+        self.assertEqual(reason, "grammar_company_is_active_clause_target")
+
+    def test_product_platform_context_is_not_promoted_to_company_subject(self) -> None:
+        raw = Prediction(
+            "incidental_mention",
+            0.76,
+            {"incidental_mention": 0.76, "direct_subject": 0.24},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Tencent Holdings Limited",
+            ["WeChat"],
+            "In a statement on WeChat, Jingye said it had begun consultations.",
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "incidental_mention")
+        self.assertEqual(reason, "nlp_label_unchanged")
+
+    def test_same_span_role_calibration_rejects_contextual_example(self) -> None:
+        raw = Prediction(
+            "direct_target",
+            0.44,
+            {"direct_target": 0.44, "incidental_mention": 0.31},
+        )
+
+        calibrated, reason = calibrate_relationship_role(
+            "Taiwan Semiconductor Manufacturing Company",
+            ["TSMC"],
+            (
+                "The administration called tariffs an incentive, pointing to "
+                "TSMC's decision to expand its plants in Arizona."
+            ),
+            raw,
+        )
+
+        self.assertEqual(calibrated.label, "incidental_mention")
+        self.assertEqual(reason, "grammar_contextual_example")
 
     def test_rule_and_nlp_agreement_is_retained(self) -> None:
         relation = Prediction(
@@ -97,6 +226,44 @@ class EnrichEventsNlpTests(unittest.TestCase):
 
         self.assertFalse(admitted)
         self.assertEqual(reason, "nlp_rejected_rule_candidate")
+
+    def test_strong_rule_does_not_override_incidental_label(self) -> None:
+        relation = Prediction(
+            "incidental_mention",
+            0.8,
+            {"incidental_mention": 0.8, "direct_target": 0.2},
+        )
+
+        admitted, reason = decide_hybrid_relationship(
+            True,
+            8,
+            self.event_prediction,
+            relation,
+            0.2,
+            self.config,
+        )
+
+        self.assertFalse(admitted)
+        self.assertEqual(reason, "nlp_rejected_rule_candidate")
+
+    def test_strong_rule_can_retain_low_confidence_positive_label(self) -> None:
+        relation = Prediction(
+            "direct_target",
+            0.3,
+            {"direct_target": 0.3, "incidental_mention": 0.7},
+        )
+
+        admitted, reason = decide_hybrid_relationship(
+            True,
+            7,
+            self.event_prediction,
+            relation,
+            0.3,
+            self.config,
+        )
+
+        self.assertTrue(admitted)
+        self.assertEqual(reason, "strong_rule_fallback")
 
     def test_nlp_can_rescue_strong_semantic_candidate(self) -> None:
         relation = Prediction(

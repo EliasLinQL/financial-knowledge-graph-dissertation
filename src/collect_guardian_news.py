@@ -270,17 +270,38 @@ def company_case_sensitive_aliases(
     }
 
 
-def api_error_message(response: requests.Response, payload: Any) -> str:
+def redact_sensitive_text(value: Any, api_key: str = "") -> str:
+    """Remove credentials from exception and response text before logging."""
+    text = str(value)
+    if api_key:
+        text = text.replace(api_key, "<redacted>")
+    return re.sub(
+        r"(?i)([?&](?:api[_-]?key|apikey|token)=)[^&\s'\"]+",
+        r"\1<redacted>",
+        text,
+    )
+
+
+def api_error_message(
+    response: requests.Response,
+    payload: Any,
+    api_key: str = "",
+) -> str:
     if isinstance(payload, dict):
         guardian_response = payload.get("response")
         if isinstance(guardian_response, dict):
-            return str(
+            message = str(
                 guardian_response.get("message")
                 or guardian_response.get("status")
                 or f"HTTP {response.status_code}"
             )
-        return str(payload.get("message") or payload.get("error") or response.reason)
-    return f"HTTP {response.status_code}: {response.reason}"
+        else:
+            message = str(
+                payload.get("message") or payload.get("error") or response.reason
+            )
+    else:
+        message = f"HTTP {response.status_code}: {response.reason}"
+    return redact_sensitive_text(message, api_key)
 
 
 def request_guardian(
@@ -291,6 +312,7 @@ def request_guardian(
     backoff_seconds: float,
     request_budget: ApiRequestBudget | None = None,
 ) -> dict[str, Any]:
+    api_key = str(params.get("api-key", ""))
     for attempt in range(max_retries + 1):
         if request_budget is not None:
             request_budget.consume()
@@ -298,7 +320,8 @@ def request_guardian(
             response = requests.get(base_url, params=params, timeout=timeout_seconds)
         except requests.RequestException as exc:
             if attempt >= max_retries:
-                raise GuardianError(f"Network error: {exc}") from exc
+                safe_message = redact_sensitive_text(exc, api_key)
+                raise GuardianError(f"Network error: {safe_message}") from exc
             wait = backoff_seconds * (2**attempt)
             print(f"  Network error; retrying in {wait:.0f} seconds...")
             time.sleep(wait)
@@ -312,29 +335,38 @@ def request_guardian(
             ) from exc
 
         if response.status_code in {401, 403}:
-            raise GuardianAuthenticationError(api_error_message(response, payload))
+            raise GuardianAuthenticationError(
+                api_error_message(response, payload, api_key)
+            )
         if response.status_code == 429:
             if attempt >= max_retries:
-                raise GuardianRateLimitError(api_error_message(response, payload))
+                raise GuardianRateLimitError(
+                    api_error_message(response, payload, api_key)
+                )
             wait = backoff_seconds * (2**attempt)
             print(f"  Rate limited; retrying in {wait:.0f} seconds...")
             time.sleep(wait)
             continue
         if response.status_code >= 500:
             if attempt >= max_retries:
-                raise GuardianError(api_error_message(response, payload))
+                raise GuardianError(api_error_message(response, payload, api_key))
             wait = backoff_seconds * (2**attempt)
             print(f"  Guardian server error; retrying in {wait:.0f} seconds...")
             time.sleep(wait)
             continue
         if response.status_code >= 400:
-            raise GuardianError(api_error_message(response, payload))
+            raise GuardianError(api_error_message(response, payload, api_key))
 
         guardian_response = payload.get("response") if isinstance(payload, dict) else None
         if not isinstance(guardian_response, dict):
             raise GuardianError("Unexpected Guardian response structure")
         if guardian_response.get("status") != "ok":
-            raise GuardianError(str(guardian_response.get("message", "Unknown error")))
+            raise GuardianError(
+                redact_sensitive_text(
+                    guardian_response.get("message", "Unknown error"),
+                    api_key,
+                )
+            )
         return payload
 
     raise AssertionError("Unreachable Guardian retry state")

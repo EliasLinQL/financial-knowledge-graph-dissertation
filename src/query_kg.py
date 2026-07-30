@@ -79,15 +79,24 @@ ORDER BY event_count DESC, company
 """
 
 EVENT_EVIDENCE_QUERY = """
-MATCH (a:Article)-[:REPORTS]->(e:Event)
-      -[r:POTENTIALLY_AFFECTS]->(c:Company)
+MATCH (e:Event)-[r:POTENTIALLY_AFFECTS]->(c:Company)
+MATCH (a:Article)-[report:REPORTS]->(e)
 WHERE ($company_id IS NULL OR c.company_id = $company_id)
   AND ($event_type IS NULL OR e.event_type = $event_type)
   AND ($start_date IS NULL OR e.event_date >= date($start_date))
   AND ($end_date IS NULL OR e.event_date <= date($end_date))
+  AND (
+      report.source_event_id = r.source_event_id
+      OR (
+          r.source_event_id IS NULL
+          AND coalesce(report.is_representative, true) = true
+      )
+  )
 RETURN c.company_id AS company_id,
        c.name AS company,
        e.event_id AS event_id,
+       e.source_event_count AS source_event_count,
+       e.source_article_count AS source_article_count,
        e.event_date AS event_date,
        e.event_type AS event_type,
        e.title AS event_title,
@@ -102,6 +111,8 @@ RETURN c.company_id AS company_id,
        r.hybrid_decision_reason AS hybrid_decision_reason,
        r.nlp_model_name AS nlp_model_name,
        r.nlp_model_revision AS nlp_model_revision,
+       report.source_event_id AS evidence_source_event_id,
+       report.similarity_to_representative AS similarity_to_representative,
        a.article_id AS article_id,
        a.web_url AS source_url
 ORDER BY event_date DESC, company, event_id
@@ -164,6 +175,29 @@ INTEGRITY_QUERIES = {
         WITH e, c, count(r) - 1 AS extra
         WHERE extra > 0
         RETURN coalesce(sum(extra), 0) AS actual
+    """,
+    "canonical_event_source_count_mismatch": """
+        MATCH (e:Event)
+        OPTIONAL MATCH (:Article)-[r:REPORTS]->(e)
+        WITH e,
+             count(r) AS article_count,
+             count(DISTINCT coalesce(r.source_event_id, e.event_id))
+                 AS source_event_count
+        WHERE coalesce(e.source_article_count, 1) <> article_count
+           OR coalesce(e.source_event_count, 1) <> source_event_count
+        RETURN count(e) AS actual
+    """,
+    "canonical_relationships_without_source_report": """
+        MATCH (e:Event)-[impact:POTENTIALLY_AFFECTS]->(:Company)
+        WHERE NOT EXISTS {
+            MATCH (:Article)-[report:REPORTS]->(e)
+            WHERE report.source_event_id = impact.source_event_id
+               OR (
+                   impact.source_event_id IS NULL
+                   AND coalesce(report.is_representative, true) = true
+               )
+        }
+        RETURN count(impact) AS actual
     """,
     "market_observations_with_causal_claim": """
         MATCH (m:MarketObservation)
@@ -382,7 +416,7 @@ def build_validation_report(
                 "expected": 0,
                 "actual": actual_value,
                 "status": "PASS" if actual_value == 0 else "FAIL",
-                "detail": "Automated graph-integrity rule; no manual review required.",
+                "detail": "Graph-integrity constraint.",
             }
         )
 

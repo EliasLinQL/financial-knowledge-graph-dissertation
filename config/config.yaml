@@ -72,6 +72,15 @@ event_analysis:
   trail_keyword_weight: 2
   body_keyword_weight: 1
   maximum_body_keyword_hits: 3
+  # Events are grounded in company-bearing evidence sentences or adjacent
+  # two-sentence windows from the same source paragraph.
+  event_span_keyword_weight: 3
+  maximum_event_spans_per_article_company: 2
+  maximum_sentences_per_event_span: 2
+  event_span_maximum_characters: 700
+  same_sentence_selection_bonus: 4
+  adjacent_sentence_selection_bonus: 2
+  event_title_maximum_characters: 180
   section_hint_weight: 1
   minimum_recommended_score: 3
   minimum_product_only_score: 5
@@ -79,6 +88,7 @@ event_analysis:
     headline_alias: 4
     trail_alias: 3
     keyword_same_sentence: 3
+    keyword_adjacent_sentence: 2
     query_returned: 1
     core_alias_evidence: 1
   minimum_core_relationship_score: 4
@@ -123,9 +133,25 @@ event_analysis:
       - revenue
       - sales
       - forecast
+      - forecasts
+      - outlook
+      - missed forecast
+      - missed forecasts
       - investment
       - invest
+      - invested
       - spending
+      - funding
+      - funded
+      - donation
+      - donate
+      - donated
+      - expansion
+      - expand
+      - expanded
+      - fee cut
+      - fees lowered
+      - lowers fees
       - launch
       - launches
       - partnership
@@ -146,10 +172,14 @@ event_analysis:
       - regulator
       - regulation
       - regulatory
+      - digital markets act
+      - digital services act
       - antitrust
       - competition authority
       - investigation
       - lawsuit
+      - sue
+      - suing
       - sued
       - court
       - legal
@@ -157,6 +187,15 @@ event_analysis:
       - legislation
       - ban
       - banned
+      - block
+      - blocked
+      - restrict
+      - restricted
+      - restriction
+      - exempt
+      - exemption
+      - copyright
+      - trademark
       - approval
       - compliance
       - privacy
@@ -225,7 +264,7 @@ nlp_enrichment:
   enabled: true
   use_for_downstream: true
   model_name: cross-encoder/nli-deberta-v3-xsmall
-  model_revision: main
+  model_revision: a150876415327c80daeff35ca6f68f5ed8cf5c24
   model_cache_directory: data/models/huggingface
   prediction_cache_file: data/news/processed/nlp_prediction_cache.json
   device: 0
@@ -245,6 +284,36 @@ nlp_enrichment:
     - direct_subject
     - direct_target
     - materially_affected
+
+# Cross-article deduplication is deliberately conservative. It only compares
+# qualified Event mentions of the same type that share a company and occur
+# within seven calendar days. Complete-link clustering prevents similarity
+# chains from joining otherwise dissimilar Events.
+event_deduplication:
+  enabled: true
+  use_for_downstream: true
+  maximum_date_difference_days: 7
+  minimum_text_similarity: 0.72
+  minimum_token_containment: 0.45
+  word_similarity_weight: 0.75
+  character_similarity_weight: 0.25
+  require_same_event_type: true
+  require_shared_company: true
+
+# Research evaluation reports compare stage retention and threshold
+# sensitivity. They assess internal consistency rather than ground-truth
+# precision.
+pipeline_evaluation:
+  output_directory: "data/evaluation/top25_12m"
+  confirmation_thresholds:
+    - 0.25
+    - 0.35
+    - 0.45
+    - 0.55
+  strong_rule_focus_scores:
+    - 6
+    - 7
+    - 8
 
 neo4j_import:
   output_directory: "data/neo4j/import_top25_12m"

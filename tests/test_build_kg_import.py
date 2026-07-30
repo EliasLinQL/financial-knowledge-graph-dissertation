@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from src.build_kg_import import integer_text, rounded_integer_text
+from src.build_kg_import import build_cypher, integer_text, rounded_integer_text
 
 
 class NumericTextTests(unittest.TestCase):
@@ -29,6 +29,14 @@ class NumericTextTests(unittest.TestCase):
     def test_strict_integer_fields_still_reject_fractional_values(self) -> None:
         with self.assertRaises(ValueError):
             integer_text("1.5")
+
+    def test_loader_preserves_canonical_event_source_provenance(self) -> None:
+        cypher = build_cypher()
+
+        self.assertIn("n.source_event_count = toInteger", cypher)
+        self.assertIn("MERGE (a)-[r:REPORTS]->(e)", cypher)
+        self.assertIn("r.source_event_id = row.source_event_id", cypher)
+        self.assertIn("r.source_evidence_span = row.source_evidence_span", cypher)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "kg", "analysis")]
+    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "dedup", "kg", "analysis", "evaluation", "report")]
     [string]$Stage = "downstream",
 
     [string]$ConfigPath = "config\config.yaml",
@@ -40,7 +40,7 @@ $Config = if ([System.IO.Path]::IsPathRooted($ConfigPath)) {
 $EnvFile = Join-Path $ProjectRoot ".env"
 
 if (-not (Test-Path -LiteralPath $Python)) {
-    throw "Project Python was not found: $Python. Follow FULL_RUN_GUIDE_CN.md to create .venv and install the requirements."
+    throw "Project Python was not found: $Python. Follow the Environment section in README.md to create .venv and install the requirements."
 }
 
 if (-not (Test-Path -LiteralPath $Config)) {
@@ -77,7 +77,7 @@ function Assert-EnvFile {
 
 function Invoke-MarketStage {
     Assert-EnvFile
-    Invoke-PythonStep -Label "1/8 Market-data validation and candidate-pool selection" -Arguments @(
+    Invoke-PythonStep -Label "1/9 Market-data validation and candidate-pool selection" -Arguments @(
         "src\validate_market_data.py",
         "--config", $Config
     )
@@ -107,11 +107,11 @@ function Invoke-NewsStage {
         $Arguments += @("--refresh-company", $CompanyId.Trim())
     }
 
-    Invoke-PythonStep -Label "2/8 Guardian candidate-pool news collection" -Arguments $Arguments
+    Invoke-PythonStep -Label "2/9 Guardian candidate-pool news collection" -Arguments $Arguments
 }
 
 function Invoke-PrepareStage {
-    Invoke-PythonStep -Label "3/8 Candidate-pool news evidence cleaning" -Arguments @(
+    Invoke-PythonStep -Label "3/9 Candidate-pool news evidence cleaning" -Arguments @(
         "src\prepare_guardian_news.py",
         "--config", $Config,
         "--mode", "full"
@@ -119,7 +119,7 @@ function Invoke-PrepareStage {
 }
 
 function Invoke-CoverageStage {
-    Invoke-PythonStep -Label "4/8 News-coverage exclusion and ranked backfill" -Arguments @(
+    Invoke-PythonStep -Label "4/9 News-coverage exclusion and ranked backfill" -Arguments @(
         "src\select_news_coverage.py",
         "--config", $Config,
         "--mode", "full"
@@ -127,7 +127,7 @@ function Invoke-CoverageStage {
 }
 
 function Invoke-ExtractStage {
-    Invoke-PythonStep -Label "5/8 Rule-based event-candidate and company-link extraction" -Arguments @(
+    Invoke-PythonStep -Label "5/9 Rule-based event-candidate and company-link extraction" -Arguments @(
         "src\extract_event_candidates.py",
         "--config", $Config,
         "--mode", "full"
@@ -135,8 +135,16 @@ function Invoke-ExtractStage {
 }
 
 function Invoke-NlpStage {
-    Invoke-PythonStep -Label "6/8 NLP semantic event and relationship validation" -Arguments @(
+    Invoke-PythonStep -Label "6/9 NLP semantic event and relationship validation" -Arguments @(
         "src\enrich_events_nlp.py",
+        "--config", $Config,
+        "--mode", "full"
+    )
+}
+
+function Invoke-DedupStage {
+    Invoke-PythonStep -Label "7/9 Cross-article canonical Event deduplication" -Arguments @(
+        "src\deduplicate_events.py",
         "--config", $Config,
         "--mode", "full"
     )
@@ -151,11 +159,11 @@ function Invoke-AlignStage {
     if ($IncludeNotRecommended) {
         $Arguments += "--include-not-recommended"
     }
-    Invoke-PythonStep -Label "7/8 Event and market-window alignment" -Arguments $Arguments
+    Invoke-PythonStep -Label "8/9 Event and market-window alignment" -Arguments $Arguments
 }
 
 function Invoke-KgStage {
-    Invoke-PythonStep -Label "8/8 Automatic Neo4j import package" -Arguments @(
+    Invoke-PythonStep -Label "9/9 Automatic Neo4j import package" -Arguments @(
         "src\build_kg_import.py",
         "--config", $Config,
         "--mode", "full"
@@ -170,6 +178,28 @@ function Invoke-AnalysisStage {
     )
 }
 
+function Invoke-EvaluationStage {
+    Invoke-PythonStep -Label "Automatic ablation and threshold-sensitivity evaluation" -Arguments @(
+        "src\evaluate_pipeline.py",
+        "--config", $Config,
+        "--mode", "full"
+    )
+}
+
+function Invoke-ReportStage {
+    $ReportScript = Join-Path $ProjectRoot "run_analyst_report.ps1"
+    if (-not (Test-Path -LiteralPath $ReportScript)) {
+        throw "Analyst-report entry point was not found: $ReportScript"
+    }
+    Write-Host ""
+    Write-Host "========== Formula-driven analyst report ==========" -ForegroundColor Cyan
+    & $ReportScript -ConfigPath $Config
+    $ExitCode = $LASTEXITCODE
+    if ($null -ne $ExitCode -and $ExitCode -ne 0) {
+        throw "Analyst report failed with exit code $ExitCode."
+    }
+}
+
 switch ($Stage) {
     "all" {
         Invoke-MarketStage
@@ -178,6 +208,7 @@ switch ($Stage) {
         Invoke-CoverageStage
         Invoke-ExtractStage
         Invoke-NlpStage
+        Invoke-DedupStage
         Invoke-AlignStage
         Invoke-KgStage
     }
@@ -192,6 +223,7 @@ switch ($Stage) {
         Invoke-CoverageStage
         Invoke-ExtractStage
         Invoke-NlpStage
+        Invoke-DedupStage
         Invoke-AlignStage
         Invoke-KgStage
     }
@@ -199,17 +231,25 @@ switch ($Stage) {
         Invoke-CoverageStage
         Invoke-ExtractStage
         Invoke-NlpStage
+        Invoke-DedupStage
         Invoke-AlignStage
         Invoke-KgStage
     }
     "event" {
         Invoke-ExtractStage
         Invoke-NlpStage
+        Invoke-DedupStage
         Invoke-AlignStage
         Invoke-KgStage
     }
     "nlp" {
         Invoke-NlpStage
+        Invoke-DedupStage
+        Invoke-AlignStage
+        Invoke-KgStage
+    }
+    "dedup" {
+        Invoke-DedupStage
         Invoke-AlignStage
         Invoke-KgStage
     }
@@ -218,6 +258,13 @@ switch ($Stage) {
     }
     "analysis" {
         Invoke-AnalysisStage
+        Invoke-EvaluationStage
+    }
+    "evaluation" {
+        Invoke-EvaluationStage
+    }
+    "report" {
+        Invoke-ReportStage
     }
 }
 

@@ -25,6 +25,9 @@ ARTICLE_COLUMNS = {
 EVENT_COLUMNS = {
     "event_id",
     "article_id",
+    "event_title",
+    "event_summary",
+    "evidence_span",
     "event_type",
     "event_score",
     "recommended_for_graph",
@@ -70,9 +73,18 @@ EVENT_LABELS = {
 }
 
 RELATIONSHIP_LABELS = {
-    "direct_subject": "the named company is a direct participant or actor in the event",
-    "direct_target": "the named company is a direct target of the event",
-    "materially_affected": "the event is likely to materially affect the named company",
+    "direct_subject": (
+        "the named company is the actor, speaker, announcer or decision-maker "
+        "performing the action described"
+    ),
+    "direct_target": (
+        "an external actor, regulator, court, policy or action explicitly targets "
+        "the named company"
+    ),
+    "materially_affected": (
+        "the named company is not the actor or explicit target but the described "
+        "event is likely to materially affect it"
+    ),
     "market_context": "the company is mentioned only as stock-market context",
     "incidental_mention": "the company is mentioned incidentally or only in a list",
     "unrelated": "the text does not establish a meaningful relationship to the company",
@@ -184,11 +196,10 @@ def unique_texts(values: Iterable[str], maximum: int, maximum_chars: int) -> lis
     return output
 
 
-def event_text(article: pd.Series, maximum_chars: int) -> str:
+def event_text(event: pd.Series, maximum_chars: int) -> str:
     parts = [
-        f"Headline: {normalise_text(article['headline'])}",
-        f"Summary: {normalise_text(article['trail_text'])}",
-        f"Article context: {normalise_text(article['body_text'])}",
+        f"Evidence-grounded title: {normalise_text(event['event_title'])}",
+        f"Evidence span: {normalise_text(event['evidence_span'])}",
     ]
     return "\n".join(parts)[:maximum_chars]
 
@@ -199,26 +210,15 @@ def evidence_candidates(
     maximum: int,
     maximum_chars: int,
 ) -> list[str]:
-    aliases = list(
-        dict.fromkeys(
-            parse_json_list(link["matched_core_aliases"])
-            + parse_json_list(link["matched_product_aliases"])
-            + [normalise_text(link["company_name"])]
-        )
+    # The rule extractor has already selected the Event's evidence unit. Expanding
+    # back to other article sentences would allow NLP to validate a different event.
+    candidates = unique_texts(
+        [normalise_text(link["evidence_sentence"])],
+        maximum=1,
+        maximum_chars=maximum_chars,
     )
-    values: list[str] = [normalise_text(link["evidence_sentence"])]
-    for field in ("headline", "trail_text"):
-        text = normalise_text(article[field])
-        if text and alias_in_text(text, aliases):
-            values.append(text)
-    for sentence in sentence_split(article["body_text"]):
-        if alias_in_text(sentence, aliases):
-            values.append(sentence)
-        if len(values) >= maximum * 2:
-            break
-    candidates = unique_texts(values, maximum, maximum_chars)
     if not candidates:
-        candidates = [normalise_text(link["evidence_sentence"]) or normalise_text(article["headline"])]
+        candidates = [normalise_text(article["headline"])]
     return candidates
 
 
@@ -439,6 +439,124 @@ def choose_relation_prediction(
     return sentence, prediction, positive_probability(prediction, accepted_labels)
 
 
+def calibrate_relationship_role(
+    company_name: str,
+    aliases: Iterable[str],
+    evidence: str,
+    prediction: Prediction,
+) -> tuple[Prediction, str]:
+    """Apply narrow grammatical role corrections to ambiguous NLI labels."""
+    names = list(
+        dict.fromkeys(
+            normalise_text(value)
+            for value in [company_name, *aliases]
+            if normalise_text(value)
+        )
+    )
+    if not names:
+        return prediction, "nlp_label_unchanged"
+    name_pattern = "(?:" + "|".join(
+        re.escape(name) for name in sorted(names, key=len, reverse=True)
+    ) + ")"
+    subject_verbs = (
+        r"said|says|announced|reported|expects?|forecast|forecasts|"
+        r"raised|cut|launched|acquired|plans?|invests?|signed|agreed|"
+        r"posted|recorded|sold|bought|leads?|leading|missed|misses|"
+        r"donated|donates|gave|gives|provided|provides|reports?|"
+        r"expanded|expands|funded|funds|lowered|lowers|will"
+    )
+    target_verbs = (
+        r"sued|fined|targeted|banned|blocked|restricted|investigated|charged|"
+        r"penalized|penalised|sanctioned"
+    )
+    text = normalise_text(evidence)
+
+    if re.search(
+        rf"\b(?:including|such as|alongside|among|like|pointing to)\b"
+        rf"[^.;:!?]{{0,80}}(?<!\w){name_pattern}(?!\w)",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        if prediction.label != "incidental_mention":
+            return (
+                Prediction(
+                    "incidental_mention",
+                    prediction.score,
+                    prediction.scores,
+                ),
+                "grammar_contextual_example",
+            )
+
+    if re.search(
+        rf"^\W*(?:the\s+)?{name_pattern}(?:\s*,[^,]{{0,50}},)?\s+"
+        rf"(?:(?:has|have|had|is|are|was|were)\s+)?(?:{subject_verbs})\b",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        if prediction.label != "direct_subject":
+            return (
+                Prediction(
+                    "direct_subject",
+                    prediction.score,
+                    prediction.scores,
+                ),
+                "grammar_company_is_subject",
+            )
+
+    if re.search(
+        rf"(?<!\w){name_pattern}(?:['’]s)?\s+"
+        rf"(?:chief executive|ceo|chair|spokes(?:person|man|woman)|company)"
+        rf"[^.;:!?]{{0,80}}\b(?:said|says|told|announced|reported|warned)\b",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        if prediction.label != "direct_subject":
+            return (
+                Prediction(
+                    "direct_subject",
+                    prediction.score,
+                    prediction.scores,
+                ),
+                "grammar_company_representative_is_subject",
+            )
+
+    if re.search(
+        rf"(?<!\w){name_pattern}(?!\w).{{0,35}}\b"
+        rf"(?:was|were|is|are|has been|have been)\s+(?:{target_verbs})\b",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        if prediction.label != "direct_target":
+            return (
+                Prediction(
+                    "direct_target",
+                    prediction.score,
+                    prediction.scores,
+                ),
+                "grammar_company_is_target",
+            )
+
+    if re.search(
+        rf"\b(?:sue|sues|sued|suing|fine|fines|fined|target|targets|"
+        rf"targeted|ban|bans|banned|block|blocks|blocked|restrict|"
+        rf"restricts|restricted|investigate|investigates|investigated|"
+        rf"charge|charges|charged|sanction|sanctions|sanctioned)\s+"
+        rf"(?:the\s+)?(?<!\w){name_pattern}(?!\w)",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        if prediction.label != "direct_target":
+            return (
+                Prediction(
+                    "direct_target",
+                    prediction.score,
+                    prediction.scores,
+                ),
+                "grammar_company_is_active_clause_target",
+            )
+    return prediction, "nlp_label_unchanged"
+
+
 def decide_hybrid_relationship(
     rule_recommended: bool,
     focus_score: int,
@@ -460,7 +578,7 @@ def decide_hybrid_relationship(
     if rule_recommended:
         if positive_top_label and relation_prediction.score >= confirmation_threshold:
             return True, "rule_and_nlp_agree"
-        if focus_score >= strong_rule_score and relation_prediction.label != "unrelated":
+        if focus_score >= strong_rule_score and positive_top_label:
             return True, "strong_rule_fallback"
         return False, "nlp_rejected_rule_candidate"
 
@@ -552,7 +670,7 @@ def run() -> int:
 
     event_text_limit = int(nlp_config.get("event_text_maximum_characters", 1800))
     event_texts = [
-        event_text(pd.Series(article_map[row["article_id"]]), event_text_limit)
+        event_text(row, event_text_limit)
         for _, row in events.iterrows()
     ]
     event_predictions = classifier.predict_many(
@@ -621,10 +739,22 @@ def run() -> int:
     enriched_links: list[dict[str, Any]] = []
     for position, (_, link) in enumerate(links.iterrows()):
         start, end, candidates = relationship_ranges[position]
-        evidence, relationship_prediction, positive_score = choose_relation_prediction(
+        evidence, raw_relationship_prediction, _ = choose_relation_prediction(
             candidates,
             relationship_predictions[start:end],
             accepted_relationship_labels,
+        )
+        relationship_prediction, role_calibration_reason = (
+            calibrate_relationship_role(
+                normalise_text(link["company_name"]),
+                parse_json_list(link["matched_core_aliases"])
+                + parse_json_list(link["matched_product_aliases"]),
+                evidence,
+                raw_relationship_prediction,
+            )
+        )
+        positive_score = positive_probability(
+            relationship_prediction, accepted_relationship_labels
         )
         event_prediction = event_prediction_by_id[link["event_id"]]
         rule_recommended = parse_bool(link["recommended_for_graph"])
@@ -643,10 +773,12 @@ def run() -> int:
                 "rule_event_type": link.get("event_type", ""),
                 "rule_recommended_for_graph": rule_recommended,
                 "event_type": final_event_type_by_id[link["event_id"]],
+                "nlp_raw_relationship_label": raw_relationship_prediction.label,
                 "nlp_relationship_label": relationship_prediction.label,
                 "nlp_relationship_score": relationship_prediction.score,
                 "nlp_positive_probability": positive_score,
                 "nlp_relationship_scores": json_scores(relationship_prediction),
+                "nlp_role_calibration_reason": role_calibration_reason,
                 "nlp_evidence_sentence": evidence,
                 "nlp_model_name": model_name,
                 "nlp_model_revision": classifier.resolved_revision,
@@ -704,6 +836,9 @@ def run() -> int:
 
     reason_counts = enriched_link_frame["hybrid_decision_reason"].value_counts()
     label_counts = enriched_link_frame["nlp_relationship_label"].value_counts()
+    calibration_counts = enriched_link_frame[
+        "nlp_role_calibration_reason"
+    ].value_counts()
     report_rows: list[dict[str, Any]] = [
         {
             "section": "runtime",
@@ -774,6 +909,15 @@ def run() -> int:
             "details": "Top zero-shot NLI relationship label",
         }
         for label, count in label_counts.items()
+    )
+    report_rows.extend(
+        {
+            "section": "role_calibration",
+            "metric": reason,
+            "value": int(count),
+            "details": "Same-span grammatical role calibration",
+        }
+        for reason, count in calibration_counts.items()
     )
 
     write_csv(enriched_event_frame, event_output)

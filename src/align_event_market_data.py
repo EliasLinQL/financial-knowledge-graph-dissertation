@@ -193,6 +193,7 @@ def main() -> int:
         news_config = project["news_data"]
         event_config = project["event_analysis"]
         nlp_config = project.get("nlp_enrichment", {})
+        dedup_config = project.get("event_deduplication", {})
         market_config = project["market_data"]
         mode_config = news_config["collection_modes"][args.mode]
         windows = sorted(
@@ -215,16 +216,25 @@ def main() -> int:
         and nlp_config.get("enabled", False)
         and nlp_config.get("use_for_downstream", False)
     )
-    event_filename = (
-        f"{stem}_event_candidates_nlp.csv"
-        if use_nlp_inputs
-        else f"{stem}_event_candidates.csv"
+    use_deduplicated_inputs = bool(
+        isinstance(dedup_config, dict)
+        and dedup_config.get("enabled", False)
+        and dedup_config.get("use_for_downstream", False)
     )
-    event_link_filename = (
-        f"{stem}_event_company_links_nlp.csv"
-        if use_nlp_inputs
-        else f"{stem}_event_company_links.csv"
-    )
+    if use_deduplicated_inputs:
+        event_filename = f"{stem}_canonical_events.csv"
+        event_link_filename = f"{stem}_canonical_event_company_links.csv"
+    else:
+        event_filename = (
+            f"{stem}_event_candidates_nlp.csv"
+            if use_nlp_inputs
+            else f"{stem}_event_candidates.csv"
+        )
+        event_link_filename = (
+            f"{stem}_event_company_links_nlp.csv"
+            if use_nlp_inputs
+            else f"{stem}_event_company_links.csv"
+        )
     events_path = (
         args.events_csv.resolve()
         if args.events_csv
@@ -327,8 +337,13 @@ def main() -> int:
         company = company_map[company_id]
         market = market_by_company[company_id]
         trading_dates = pd.DatetimeIndex(market.index)
+        relationship_publication = str(
+            link.get("relationship_publication_timestamp", "")
+        ).strip()
         publication = pd.to_datetime(
-            event["publication_timestamp"], utc=True, errors="coerce"
+            relationship_publication or event["publication_timestamp"],
+            utc=True,
+            errors="coerce",
         )
         market_link_id = stable_market_link_id(event_id, company_id)
         if pd.isna(publication):
@@ -380,7 +395,8 @@ def main() -> int:
                 {
                     "market_link_id": market_link_id,
                     "event_id": event_id,
-                    "article_id": event["article_id"],
+                    "article_id": link["article_id"] or event["article_id"],
+                    "source_event_id": link.get("source_event_id", event_id),
                     "company_id": company_id,
                     "company_name": company["company_name"],
                     "symbol": company["twelve_data_symbol"],
@@ -463,6 +479,7 @@ def main() -> int:
         "market_link_id",
         "event_id",
         "article_id",
+        "source_event_id",
         "company_id",
         "company_name",
         "symbol",

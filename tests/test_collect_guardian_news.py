@@ -8,12 +8,24 @@ from src.collect_guardian_news import (
     ApiRequestBudget,
     GuardianRateLimitError,
     collection_windows,
+    redact_sensitive_text,
     required_network_requests,
     validate_collection_capacity,
 )
 
 
 class CollectGuardianNewsTests(unittest.TestCase):
+    def test_sensitive_query_parameters_are_redacted(self) -> None:
+        message = (
+            "Connection failed for "
+            "https://content.guardianapis.com/search?api-key=secret-value&page=1"
+        )
+
+        redacted = redact_sensitive_text(message, "secret-value")
+
+        self.assertNotIn("secret-value", redacted)
+        self.assertIn("api-key=<redacted>", redacted)
+
     def test_top25_study_period_has_twelve_monthly_windows(self) -> None:
         windows = collection_windows(
             "2025-07-01",
