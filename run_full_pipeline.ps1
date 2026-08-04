@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "dedup", "kg", "analysis", "evaluation", "report")]
+    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "dedup", "kg", "analysis", "gds", "evaluation", "usecases", "report", "results")]
     [string]$Stage = "downstream",
 
     [string]$ConfigPath = "config\config.yaml",
@@ -178,6 +178,32 @@ function Invoke-AnalysisStage {
     )
 }
 
+function Invoke-GdsStage {
+    Assert-EnvFile
+    $GdsScript = Join-Path $ProjectRoot "run_gds_analysis.ps1"
+    if (-not (Test-Path -LiteralPath $GdsScript)) {
+        throw "GDS analysis entry point was not found: $GdsScript"
+    }
+    & $GdsScript -ConfigPath $Config
+    $ExitCode = $LASTEXITCODE
+    if ($null -ne $ExitCode -and $ExitCode -ne 0) {
+        throw "GDS analysis failed with exit code $ExitCode."
+    }
+}
+
+function Invoke-UseCaseStage {
+    Assert-EnvFile
+    $UseCaseScript = Join-Path $ProjectRoot "run_analyst_use_case_evaluation.ps1"
+    if (-not (Test-Path -LiteralPath $UseCaseScript)) {
+        throw "Analyst use-case evaluation entry point was not found: $UseCaseScript"
+    }
+    & $UseCaseScript -ConfigPath $Config
+    $ExitCode = $LASTEXITCODE
+    if ($null -ne $ExitCode -and $ExitCode -ne 0) {
+        throw "Analyst use-case evaluation failed with exit code $ExitCode."
+    }
+}
+
 function Invoke-EvaluationStage {
     Invoke-PythonStep -Label "Automatic ablation and threshold-sensitivity evaluation" -Arguments @(
         "src\evaluate_pipeline.py",
@@ -192,11 +218,25 @@ function Invoke-ReportStage {
         throw "Analyst-report entry point was not found: $ReportScript"
     }
     Write-Host ""
-    Write-Host "========== Formula-driven analyst report ==========" -ForegroundColor Cyan
+    Write-Host "========== Read-only analyst report ==========" -ForegroundColor Cyan
     & $ReportScript -ConfigPath $Config
     $ExitCode = $LASTEXITCODE
     if ($null -ne $ExitCode -and $ExitCode -ne 0) {
         throw "Analyst report failed with exit code $ExitCode."
+    }
+}
+
+function Invoke-ResultsStage {
+    $ResultsScript = Join-Path $ProjectRoot "run_chapter4_results.ps1"
+    if (-not (Test-Path -LiteralPath $ResultsScript)) {
+        throw "Chapter 4 results entry point was not found: $ResultsScript"
+    }
+    Write-Host ""
+    Write-Host "========== Reproducible Chapter 4 results package ==========" -ForegroundColor Cyan
+    & $ResultsScript -ConfigPath $Config
+    $ExitCode = $LASTEXITCODE
+    if ($null -ne $ExitCode -and $ExitCode -ne 0) {
+        throw "Chapter 4 results package failed with exit code $ExitCode."
     }
 }
 
@@ -260,11 +300,20 @@ switch ($Stage) {
         Invoke-AnalysisStage
         Invoke-EvaluationStage
     }
+    "gds" {
+        Invoke-GdsStage
+    }
+    "usecases" {
+        Invoke-UseCaseStage
+    }
     "evaluation" {
         Invoke-EvaluationStage
     }
     "report" {
         Invoke-ReportStage
+    }
+    "results" {
+        Invoke-ResultsStage
     }
 }
 

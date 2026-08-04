@@ -6,6 +6,10 @@ representation. The pipeline combines market data from Twelve Data, news from
 the Guardian Open Platform, rule-based event extraction, local Natural
 Language Inference (NLI), and Neo4j.
 
+An independent Neo4j Graph Data Science (GDS) stage performs exploratory
+structural analysis over the frozen knowledge graph. It uses temporary
+in-memory projections and does not write algorithm results back to Neo4j.
+
 The current configuration covers 1 July 2025 to 30 June 2026. It selects 25
 companies from a market-cap-ranked candidate pool, subject to market-data
 quality and minimum news-coverage requirements.
@@ -36,6 +40,12 @@ The pipeline applies the following stages:
     reports without changing the graph.
 11. Export a read-only analyst package with canonical events, selected
     source-evidence spans, descriptive market windows and graph checks.
+12. Run an optional read-only GDS stage for shared-event connectivity,
+    canonical-event-neighbour similarity, community structure and
+    supplementary centrality.
+13. Evaluate five fixed analyst information-integration tasks against the
+    frozen graph, with provenance/completeness checks and local query-time
+    diagnostics.
 
 The event taxonomy contains corporate, regulatory, geopolitical,
 macroeconomic, commodity and market-wide events. Article headlines remain on
@@ -67,11 +77,18 @@ src/
   build_kg_import.py              Neo4j package construction
   reload_neo4j.py                 Controlled database replacement
   query_kg.py                     Graph validation and analysis exports
+  analyze_gds.py                  Read-only GDS structural analysis
+  evaluate_analyst_use_cases.py   Five-task read-only analyst evaluation
   evaluate_pipeline.py            Ablation and threshold-sensitivity reports
   export_analyst_report.py        Read-only analyst-report package
+  build_chapter4_results.py       Reproducible dissertation result package
 tests/                             Unit and configuration tests
 run_full_pipeline.ps1             PowerShell pipeline entry point
+run_gds_analysis.ps1              Read-only GDS analysis entry point
+run_analyst_use_case_evaluation.ps1
+                                  Read-only analyst use-case evaluation
 run_analyst_report.ps1            Neo4j analyst-report entry point
+run_chapter4_results.ps1          Chapter 4 result-package entry point
 ```
 
 Raw API responses, market-price files, model caches, database exports,
@@ -80,7 +97,9 @@ public repository.
 
 ## Environment
 
-The project was developed for Python 3.12, Neo4j 5.x and Windows PowerShell.
+The project was developed for Python 3.12, Neo4j and Windows PowerShell. The
+GDS implementation has been verified with Neo4j Enterprise 2026.06.0 and GDS
+2026.06.0. Neo4j and GDS must be installed from a compatible release line.
 Create a local virtual environment and install the dependencies:
 
 ```powershell
@@ -130,8 +149,12 @@ environment-variable names, not credential values.
 - NLI model settings, including the exact model revision used for the study;
 - conservative cross-article Event deduplication thresholds;
 - automatic ablation and threshold-sensitivity grids;
-- market-window definitions; and
-- Neo4j input and analysis paths.
+- market-window definitions;
+- Neo4j input and analysis paths;
+- GDS output paths, concurrency, shared-event support thresholds,
+  NodeSimilarity, Louvain and PageRank parameters; and
+- analyst use-case output paths, fixed task parameters, warm-up count,
+  measured-run count and expected market windows.
 
 The dated CSV files under `data/config/` preserve the ranking snapshot and the
 company-to-ticker mapping used by the configured run.
@@ -161,8 +184,11 @@ Resume from a named processing point or run an auxiliary export:
 .\run_full_pipeline.ps1 -Stage dedup
 .\run_full_pipeline.ps1 -Stage kg
 .\run_full_pipeline.ps1 -Stage analysis
+.\run_full_pipeline.ps1 -Stage gds
 .\run_full_pipeline.ps1 -Stage evaluation
+.\run_full_pipeline.ps1 -Stage usecases
 .\run_full_pipeline.ps1 -Stage report
+.\run_full_pipeline.ps1 -Stage results
 ```
 
 When the market and Guardian source files already exist locally, rebuild the
@@ -173,6 +199,12 @@ downstream outputs without repeating data collection:
 ```
 
 An alternative configuration can be supplied with `-ConfigPath`.
+
+The `gds` and `usecases` stages are intentionally not included in `-Stage all`:
+both depend on a running Neo4j instance containing the reviewed, loaded graph,
+whereas `all` builds the import package but does not silently replace the live
+database. For the final frozen result package, use the order `gds` →
+`usecases` → `results`.
 
 ## Neo4j
 
@@ -193,6 +225,40 @@ subgraph explicitly:
 The loader backs up the current project-managed import files before replacing
 the relevant labels and relationships.
 
+## Graph Data Science analysis
+
+With the reviewed knowledge graph loaded and the `financial-kg` Neo4j instance
+running, execute either entry point:
+
+```powershell
+.\run_full_pipeline.ps1 -Stage gds
+# or
+.\run_gds_analysis.ps1
+```
+
+The stage creates two UUID-named, in-memory projections. A Company-Event
+bipartite projection supports Jaccard NodeSimilarity over canonical Event
+neighbours. A weighted, undirected Company co-event projection supports WCC,
+weighted and unweighted Louvain sensitivity analysis, and weighted PageRank.
+Every algorithm uses `stream` or `stats`; no GDS property or relationship is
+written to the persisted graph. Projection names are checked and dropped in a
+`finally` block, while before/after database counts provide an additional
+non-mutation check.
+
+For the current frozen graph, `company_coevent_edges.csv` contains 39 unordered
+logical company pairs. The GDS projection reports 78 relationships because an
+undirected relationship is stored in both directions in memory. This is a
+storage representation, not 78 independent company relationships.
+
+The default `outputs/gds_analysis/` package contains bilingual result
+narratives, CSV tables for environment checks, projections, memory estimates,
+algorithms, co-event edges, WCC, NodeSimilarity, Louvain, PageRank-derived
+centrality, correlations and threshold sensitivity, plus three SVG figures.
+`gds_manifest.json` records versions, parameters, expected import-artifact and
+output SHA-256 hashes, a deterministic
+fingerprint of the live Company/Event/POTENTIALLY_AFFECTS structure, cleanup
+status and interpretation boundaries.
+
 ## Analyst report
 
 With the Neo4j instance running, generate the final read-only analyst package:
@@ -201,10 +267,10 @@ With the Neo4j instance running, generate the final read-only analyst package:
 .\run_analyst_report.ps1
 ```
 
-The output contains `analyst_report_data.json` together with English and
-Chinese Markdown briefings. The JSON package separates canonical events,
-selected source evidence, descriptive market windows and graph-validation
-results. Source article URLs and
+The runner currently generates `analyst_report_data.json` plus English and
+Chinese Markdown briefings. The package separates canonical events, selected
+source evidence, descriptive market windows and graph-validation results.
+Source article URLs and
 `Article-[:REPORTS]->Event-[:POTENTIALLY_AFFECTS]->Company` provenance are
 retained. Market returns are labelled as descriptive 1-, 3- and 7-trading-day
 context and are never interpreted as causal effects.
@@ -220,6 +286,57 @@ Optional filters can be supplied without changing the graph:
   -MinimumNlpProbability 0.50
 ```
 
+## Analyst use-case evaluation
+
+Start the frozen `financial-kg` instance, make sure the GDS package belongs to
+that graph, and run:
+
+```powershell
+.\run_full_pipeline.ps1 -Stage usecases
+# or
+.\run_analyst_use_case_evaluation.ps1
+```
+
+The stage executes five fixed tasks: whole-sample company screening; TSMC
+event/evidence traceability; high-confidence regulatory-event alerting;
+Alphabet event-to-market-context retrieval; and shared-event company-pair
+discovery. Each query receives two warm-up executions followed by ten measured
+executions. Node and relationship counts are captured before and after the
+evaluation, and every query is routed as read-only.
+
+The package contains nine CSV tables (five task results, summary, performance,
+quality checks and per-run timings), bilingual narratives, two SVG figures
+and a manifest containing parameters, hashes, timings and the non-mutation
+contract. These results test
+whether the prototype can consolidate and trace the required information. They
+do not estimate precision, recall or analyst productivity. Localhost timings
+use a warm cache and must not be generalised to a deployed multi-user system.
+Market windows remain non-causal, and shared-event Jaccard is not business or
+fundamental similarity.
+
+## Dissertation results package
+
+Once the pipeline evaluation, Neo4j import report, graph-validation export, GDS
+package and analyst use-case evaluation exist, generate citation-ready Chapter
+4 materials without calling APIs, rerunning NLP or changing Neo4j:
+
+```powershell
+.\run_full_pipeline.ps1 -Stage results
+```
+
+The Chapter 4 builder preserves the original 11 pipeline tables and five
+figures, incorporates all 14 GDS tables and three GDS figures, and adds the
+eight citation-level analyst-use-case tables and two figures. The evaluator's
+low-level ninth table, `task_run_timings.csv`, remains in its audit package.
+The default Chapter 4 package therefore
+contains 33 citation-ready CSV tables in one numbered sequence and ten
+publication figures in SVG, English and Chinese result narratives, and
+a manifest with source-file SHA-256 values and the configuration hash. The
+result narrative reports retention, coverage, threshold sensitivity, graph
+structure, analyst-task completeness and graph integrity. It does not claim
+precision or recall without a human-labelled benchmark, treat localhost
+timings as a productivity benchmark, or interpret market windows as causal.
+
 ## Tests
 
 Run the test suite from the project root:
@@ -231,7 +348,14 @@ Run the test suite from the project root:
 The tests cover configuration integrity, market-data validation, Guardian
 collection limits, coverage-based sample selection, NLI decision rules,
 cross-article Event deduplication, Neo4j package construction and controlled
-graph replacement.
+graph replacement. `tests/test_analyze_gds.py` additionally covers GDS
+configuration validation, pair and community canonicalisation, structural
+metric calculations, rank correlation and the read-only query contract.
+The analyst-use-case tests validate the five fixed task definitions, required
+field completeness, timing summaries, read-only query contract and manifest;
+the Chapter 4 tests validate package manifests, source hashes, table sequencing
+and SVG generation. Any live Neo4j/GDS integration test remains explicitly
+opt-in.
 
 ## Data availability
 
@@ -260,3 +384,14 @@ may not return byte-identical source data.
   heavily paraphrased duplicate Events.
 - Market-window returns provide context only and do not identify causal
   effects.
+- GDS structure is conditional on Guardian coverage, event extraction,
+  relationship validation and canonical-event deduplication.
+- Shared-event similarity is Jaccard similarity over canonical Event
+  neighbours, not business-model or fundamental similarity.
+- WCC, Louvain and PageRank are exploratory structural descriptions. They do
+  not measure causal influence, systemic importance, investment quality or
+  risk, and disconnected components limit strong cross-company ranking claims.
+- Analyst use-case results are internal completeness and traceability checks,
+  not precision/recall estimates or a human-productivity study.
+- Measured query times come from ten warm-cache localhost executions after two
+  warm-ups and are not deployable-system performance benchmarks.
