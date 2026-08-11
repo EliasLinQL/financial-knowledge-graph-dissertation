@@ -56,6 +56,13 @@ market_data:
     max_missing_ratio: 0.02
 
 event_analysis:
+  # Signed output windows are generated as -7/-3/-1 and +1/+3/+7.  The
+  # negative windows end at the final close before the event reaches the
+  # market; positive windows start from that same close.
+  pre_event_windows_trading_days:
+    - 1
+    - 3
+    - 7
   event_windows_trading_days:
     - 1
     - 3
@@ -365,6 +372,9 @@ analyst_use_case_evaluation:
   warmup_runs: 2
   measured_runs: 10
   expected_market_windows:
+    - -7
+    - -3
+    - -1
     - 1
     - 3
     - 7

@@ -329,8 +329,8 @@ def build_metadata(
         "interpretation": {
             "market_returns_are_causal": False,
             "market_context_note": (
-                "1/3/7-trading-day cumulative returns are descriptive context "
-                "after publication, not estimates of causal impact."
+                "1/3/7-trading-day cumulative returns before and after publication "
+                "are descriptive context, not estimates of causal impact."
             ),
         },
     }
@@ -478,7 +478,7 @@ def markdown_briefing(
     lines.extend(
         [
             "",
-            "> Important: returns are descriptive post-publication market context. "
+            "> Important: returns are descriptive market context before and after publication. "
             "They do not establish that an event caused a return and are not "
             "investment advice.",
             "",

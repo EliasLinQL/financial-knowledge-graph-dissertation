@@ -42,7 +42,7 @@ def sample_config(output_directory: Path, *, target_count: int = 1) -> Evaluatio
         regulatory_event_type="regulatory_event",
         minimum_nlp_probability=0.8,
         shared_event_support_threshold=2,
-        expected_market_windows=(1, 3, 7),
+        expected_market_windows=(-7, -3, -1, 1, 3, 7),
     )
 
 
@@ -93,7 +93,7 @@ def complete_results() -> dict[str, pd.DataFrame]:
                     "source_url": "https://example.test/e1",
                     "causal_claim": False,
                 }
-                for window in (1, 3, 7)
+                for window in (-7, -3, -1, 1, 3, 7)
             ]
         ),
         "T5": pd.DataFrame(
@@ -128,7 +128,7 @@ class EvaluateAnalystUseCasesTests(unittest.TestCase):
         self.assertEqual(value.measured_runs, 10)
         self.assertEqual(value.tsmc_company_id, "C007")
         self.assertEqual(value.alphabet_company_id, "C003")
-        self.assertEqual(value.expected_market_windows, (1, 3, 7))
+        self.assertEqual(value.expected_market_windows, (-7, -3, -1, 1, 3, 7))
         self.assertEqual(
             value.output_directory,
             root / "outputs/analyst_use_case_evaluation",

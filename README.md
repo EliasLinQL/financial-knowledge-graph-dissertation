@@ -34,7 +34,7 @@ The pipeline applies the following stages:
 7. Cluster qualified, cross-article Event mentions into canonical Events using
    temporal, company, event-type and complete-link text-similarity gates.
 8. Align canonical Event-Company pairs with 1-, 3- and 7-trading-day market
-   windows.
+   windows before and after publication.
 9. Build and validate a Neo4j import package.
 10. Export automatic rule/NLP/deduplication ablation and threshold-sensitivity
     reports without changing the graph.
@@ -273,7 +273,8 @@ source evidence, descriptive market windows and graph-validation results.
 Source article URLs and
 `Article-[:REPORTS]->Event-[:POTENTIALLY_AFFECTS]->Company` provenance are
 retained. Market returns are labelled as descriptive 1-, 3- and 7-trading-day
-context and are never interpreted as causal effects.
+windows before and after publication and are never interpreted as causal
+effects.
 
 Optional filters can be supplied without changing the graph:
 

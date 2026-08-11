@@ -143,6 +143,44 @@ def stable_market_link_id(event_id: str, company_id: str) -> str:
     return f"EML_{digest[:14].upper()}"
 
 
+def calculate_return_window(
+    market: pd.DataFrame,
+    trading_dates: pd.DatetimeIndex,
+    anchor_position: int,
+    window: int,
+) -> dict[str, Any] | None:
+    """Return one signed trading-day window around the publication boundary.
+
+    Positive windows start at the final close before the event reaches the
+    market and end after 1/3/7 trading sessions. Negative windows end at that
+    same pre-event close and look back 1/3/7 trading sessions. Dates therefore
+    remain chronological for both directions.
+    """
+
+    if window == 0:
+        raise ValueError("A market window cannot be zero trading days.")
+    if window > 0:
+        start_position = anchor_position - 1
+        end_position = anchor_position + window - 1
+    else:
+        end_position = anchor_position - 1
+        start_position = end_position - abs(window)
+    if start_position < 0 or end_position >= len(trading_dates):
+        return None
+
+    baseline_date = trading_dates[start_position]
+    window_end_date = trading_dates[end_position]
+    baseline_close = float(market.loc[baseline_date, "Close"])
+    window_end_close = float(market.loc[window_end_date, "Close"])
+    return {
+        "baseline_date": baseline_date,
+        "baseline_close": baseline_close,
+        "window_end_date": window_end_date,
+        "window_end_close": window_end_close,
+        "cumulative_return": window_end_close / baseline_close - 1.0,
+    }
+
+
 def write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -196,11 +234,26 @@ def main() -> int:
         dedup_config = project.get("event_deduplication", {})
         market_config = project["market_data"]
         mode_config = news_config["collection_modes"][args.mode]
-        windows = sorted(
+        post_event_windows = sorted(
             {int(value) for value in event_config["event_windows_trading_days"]}
         )
-        if not windows or windows[0] < 1:
+        pre_event_windows = sorted(
+            {
+                int(value)
+                for value in event_config.get(
+                    "pre_event_windows_trading_days", []
+                )
+            }
+        )
+        if not post_event_windows or post_event_windows[0] < 1:
             raise ValueError("event_windows_trading_days must contain positive integers")
+        if pre_event_windows and pre_event_windows[0] < 1:
+            raise ValueError(
+                "pre_event_windows_trading_days must contain positive integers"
+            )
+        windows = sorted(
+            {-value for value in pre_event_windows} | set(post_event_windows)
+        )
         timezone = ZoneInfo(str(event_config["market_timezone"]))
         market_close = parse_close_time(
             str(event_config.get("market_close_local_time", "16:00"))
@@ -381,16 +434,16 @@ def main() -> int:
             )
             continue
 
-        baseline_date = trading_dates[anchor_position - 1]
-        baseline_close = float(market.loc[baseline_date, "Close"])
         complete_windows = 0
         for window in windows:
-            end_position = anchor_position + window - 1
-            if end_position >= len(trading_dates):
+            window_values = calculate_return_window(
+                market,
+                trading_dates,
+                anchor_position,
+                window,
+            )
+            if window_values is None:
                 continue
-            end_date = trading_dates[end_position]
-            end_close = float(market.loc[end_date, "Close"])
-            cumulative_return = end_close / baseline_close - 1.0
             observation_rows.append(
                 {
                     "market_link_id": market_link_id,
@@ -405,12 +458,12 @@ def main() -> int:
                     "publication_timestamp_utc": publication.isoformat(),
                     "publication_timestamp_market_tz": local_timestamp,
                     "anchor_rule": anchor_rule,
-                    "baseline_date": baseline_date.date().isoformat(),
-                    "baseline_close": baseline_close,
+                    "baseline_date": window_values["baseline_date"].date().isoformat(),
+                    "baseline_close": window_values["baseline_close"],
                     "window_trading_days": window,
-                    "window_end_date": end_date.date().isoformat(),
-                    "window_end_close": end_close,
-                    "cumulative_return": cumulative_return,
+                    "window_end_date": window_values["window_end_date"].date().isoformat(),
+                    "window_end_close": window_values["window_end_close"],
+                    "cumulative_return": window_values["cumulative_return"],
                     "data_source": "Twelve Data daily OHLCV cache",
                     "causal_claim": False,
                 }

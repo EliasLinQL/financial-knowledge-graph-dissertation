@@ -362,7 +362,9 @@ def evaluation_config(
         ),
         expected_market_windows=tuple(
             int(value)
-            for value in section.get("expected_market_windows", [1, 3, 7])
+            for value in section.get(
+                "expected_market_windows", [-7, -3, -1, 1, 3, 7]
+            )
         ),
     )
     validate_evaluation_config(result)
@@ -386,8 +388,8 @@ def validate_evaluation_config(config: EvaluationConfig) -> None:
         raise ValueError("support_threshold must be positive.")
     if not config.expected_market_windows:
         raise ValueError("expected_market_windows cannot be empty.")
-    if any(value <= 0 for value in config.expected_market_windows):
-        raise ValueError("expected_market_windows must contain positive integers.")
+    if any(value == 0 for value in config.expected_market_windows):
+        raise ValueError("expected_market_windows cannot contain zero.")
     if len(set(config.expected_market_windows)) != len(
         config.expected_market_windows
     ):
@@ -999,7 +1001,7 @@ def task_quality_checks(
                 "market_window_completeness",
                 len(complete_events),
                 event_count,
-                "Event links with exactly the configured 1/3/7-day windows.",
+                "Event links with exactly the configured before/after windows.",
                 "Window availability does not identify causal price effects.",
             ),
             _check(
@@ -1027,7 +1029,7 @@ def task_quality_checks(
                 noncausal_rows,
                 len(task4),
                 "Market rows explicitly marked as non-causal.",
-                "Returns remain descriptive post-publication context.",
+                "Returns remain descriptive context before and after publication.",
             ),
         ]
     )
@@ -1345,7 +1347,7 @@ def evaluation_report(
                 "- NLP 概率阈值是操作筛选条件，不是经人工金标准验证的准确率。",
                 "- 响应时间来自 localhost 和预热缓存环境，不应外推为生产系统性能。",
                 "- 本研究没有设置人工工作流基线，因此不声称节省了具体工时或提高了人工准确率。",
-                "- 市场窗口收益仅是新闻发布后的描述性背景，不建立事件与收益之间的因果关系，也不构成投资建议。",
+                "- 市场窗口收益仅是新闻发布前后的描述性背景，不建立事件与收益之间的因果关系，也不构成投资建议。",
                 "- 共享事件和 Jaccard 相似度表示样本内结构邻近性，不等于业务联系、系统重要性或风险传导。",
             ]
         )
@@ -1391,7 +1393,7 @@ def evaluation_report(
             "- The NLP probability threshold is an operational filter, not human-gold-standard accuracy.",
             "- Latencies are localhost, warm-cache measurements and cannot be extrapolated to production performance.",
             "- No human-workflow baseline was collected, so the study claims no quantified labour saving or improvement in human accuracy.",
-            "- Market-window returns are descriptive post-publication context, not causal effects or investment advice.",
+            "- Market-window returns are descriptive context before and after publication, not causal effects or investment advice.",
             "- Shared events and Jaccard similarity indicate within-sample structural proximity, not business ties, systemic importance or risk transmission.",
         ]
     )

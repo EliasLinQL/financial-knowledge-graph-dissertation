@@ -8,6 +8,7 @@
 # Python caches and test artefacts
 .pytest_cache/
 .*_qa/
+tmp/
 __pycache__/
 *.py[cod]
 .coverage

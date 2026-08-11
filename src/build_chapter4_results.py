@@ -2026,8 +2026,8 @@ def chapter4_markdown(
                 ),
                 "",
                 (
-                    f"每条事件—公司关系均获得 1、3 和 7 个交易日窗口，共 "
-                    f"{metrics['market_windows']:,} 条市场观察。收益仅描述新闻发布时间后的"
+                    f"每条事件—公司关系均获得发布前后 1、3 和 7 个交易日窗口，共 "
+                    f"{metrics['market_windows']:,} 条市场观察。收益仅描述新闻发布时间前后的"
                     "市场背景；没有控制同期市场、行业、重复事件或预期信息，因此不能解释为"
                     "事件导致的异常收益，也不构成投资建议。"
                 ),
@@ -2265,8 +2265,8 @@ def chapter4_markdown(
             "",
             (
                 f"Each Event–Company relationship received 1-, 3- and 7-trading-day "
-                f"windows, producing {metrics['market_windows']:,} observations. Returns "
-                "describe market conditions after publication only. They do not control "
+                f"windows before and after publication, producing {metrics['market_windows']:,} observations. Returns "
+                "describe market conditions around publication only. They do not control "
                 "for contemporaneous market or sector moves, overlapping events or prior "
                 "expectations, so they cannot be interpreted as causal abnormal returns or "
                 "investment recommendations."
