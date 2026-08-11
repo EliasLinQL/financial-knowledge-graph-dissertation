@@ -8,8 +8,20 @@
 .venv/
 .idea/
 
-# Local dashboard workspace
-frontend/
+# Frontend credentials, dependencies and generated files
+frontend/.dev.vars
+frontend/.dev.vars.*
+!frontend/.dev.vars.example
+frontend/node_modules/
+frontend/.npm-cache/
+frontend/.wrangler/
+frontend/.next/
+frontend/.vinext/
+frontend/dist/
+frontend/out/
+frontend/outputs/
+frontend/work/
+frontend/tsconfig.tsbuildinfo
 
 # Python caches and test artefacts
 .pytest_cache/

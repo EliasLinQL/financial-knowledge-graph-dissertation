@@ -1,0 +1,594 @@
+{
+  "scope": {
+    "snapshotId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceGeneratedAtUtc": "2026-08-04T00:00:00+00:00",
+    "gdsGeneratedAtUtc": "2026-08-04T00:00:00+00:00",
+    "evaluationGeneratedAtUtc": "2026-08-04T00:00:00+00:00",
+    "eventDateRange": {
+      "start": "2026-01-01",
+      "end": "2026-02-01"
+    },
+    "publisher": "Synthetic demonstration data",
+    "rankingSnapshotDate": "2026-07-23",
+    "fullPortfolioSnapshot": false
+  },
+  "summary": {
+    "companyCount": 2,
+    "eventCount": 2,
+    "impactCount": 3,
+    "sourceArticleCount": 2,
+    "marketWindowCount": 6,
+    "coveredCompanyCount": 2,
+    "sourceEvidenceRowCount": 3,
+    "multiSourceEventCount": 1,
+    "validationFailureCount": 0,
+    "networkEdgeCount": 1,
+    "supportedNetworkEdgeCount": 1,
+    "evaluationTaskCount": 5,
+    "evaluationChecksPassed": 1,
+    "evaluationChecksTotal": 1
+  },
+  "companies": [
+    {
+      "companyId": "C001",
+      "name": "One",
+      "country": "Testland",
+      "sourceRank": 1,
+      "marketCapUsd": 1000,
+      "rankingSnapshotDate": "2026-07-23",
+      "symbol": "ONE",
+      "eventCount": 2
+    },
+    {
+      "companyId": "C002",
+      "name": "Two",
+      "country": "Testland",
+      "sourceRank": 2,
+      "marketCapUsd": 900,
+      "rankingSnapshotDate": "2026-07-23",
+      "symbol": "TWO",
+      "eventCount": 1
+    }
+  ],
+  "events": [
+    {
+      "eventId": "E2",
+      "date": "2026-02-01",
+      "type": "regulatory_event",
+      "title": "Event two",
+      "summary": "Summary two",
+      "classificationConfidence": "medium",
+      "sourceEventCount": 1,
+      "sourceArticleCount": 1,
+      "deduplicationMethod": "singleton"
+    },
+    {
+      "eventId": "E1",
+      "date": "2026-01-01",
+      "type": "corporate_event",
+      "title": "Event one",
+      "summary": "Summary one",
+      "classificationConfidence": "high",
+      "sourceEventCount": 2,
+      "sourceArticleCount": 2,
+      "deduplicationMethod": "semantic_cluster"
+    }
+  ],
+  "impacts": [
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "evidenceSentence": "Evidence one",
+      "nlpRelationshipLabel": "direct_target",
+      "nlpPositiveProbability": 0.8,
+      "relationshipFocusScore": 9,
+      "hybridDecisionReason": "rule_and_nlp_agree",
+      "relationshipSourceEventId": "SE1",
+      "relationshipSourceArticleId": "A1",
+      "sourceUrl": "https://example.test/a1"
+    },
+    {
+      "companyId": "C002",
+      "eventId": "E1",
+      "evidenceSentence": "Evidence one for two",
+      "nlpRelationshipLabel": "direct_target",
+      "nlpPositiveProbability": 0.75,
+      "relationshipFocusScore": 7,
+      "hybridDecisionReason": "rule_and_nlp_agree",
+      "relationshipSourceEventId": "SE1",
+      "relationshipSourceArticleId": "A1",
+      "sourceUrl": "https://example.test/a1"
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E2",
+      "evidenceSentence": "Evidence two",
+      "nlpRelationshipLabel": "direct_subject",
+      "nlpPositiveProbability": 0.91,
+      "relationshipFocusScore": 8,
+      "hybridDecisionReason": "rule_and_nlp_agree",
+      "relationshipSourceEventId": "SE2",
+      "relationshipSourceArticleId": "A2",
+      "sourceUrl": "https://example.test/a2"
+    }
+  ],
+  "sources": [
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "sourceEventId": "SE1",
+      "sourceEventDate": "2026-01-01",
+      "sourceEventTitle": "Source one",
+      "evidenceSentence": "Evidence one",
+      "evidenceSource": "body",
+      "similarityToRepresentative": 1.0,
+      "isRepresentative": true,
+      "articleId": "A1",
+      "articleTitle": "Article one",
+      "publicationTimestamp": "2026-01-01T00:00:00Z",
+      "sectionName": "Business",
+      "url": "https://example.test/a1",
+      "isRelationshipSource": true
+    },
+    {
+      "companyId": "C002",
+      "eventId": "E1",
+      "sourceEventId": "SE1B",
+      "sourceEventDate": "2026-01-01",
+      "sourceEventTitle": "Source one b",
+      "evidenceSentence": "Evidence one b",
+      "evidenceSource": "body",
+      "similarityToRepresentative": 0.9,
+      "isRepresentative": false,
+      "articleId": "A2",
+      "articleTitle": "Article two",
+      "publicationTimestamp": "2026-01-01T01:00:00Z",
+      "sectionName": "Business",
+      "url": "https://example.test/a2",
+      "isRelationshipSource": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E2",
+      "sourceEventId": "SE2",
+      "sourceEventDate": "2026-02-01",
+      "sourceEventTitle": "Source two",
+      "evidenceSentence": "Evidence two",
+      "evidenceSource": "body",
+      "similarityToRepresentative": 1.0,
+      "isRepresentative": true,
+      "articleId": "A2",
+      "articleTitle": "Article two",
+      "publicationTimestamp": "2026-02-01T00:00:00Z",
+      "sectionName": "Business",
+      "url": "https://example.test/a2",
+      "isRelationshipSource": true
+    }
+  ],
+  "market": [
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M-7",
+      "windowDays": -7,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M-3",
+      "windowDays": -3,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M-1",
+      "windowDays": -1,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M1",
+      "windowDays": 1,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M3",
+      "windowDays": 3,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    },
+    {
+      "companyId": "C001",
+      "eventId": "E1",
+      "symbol": "ONE",
+      "marketObservationId": "M7",
+      "windowDays": 7,
+      "baselineDate": "2026-01-01",
+      "windowEndDate": "2026-01-02",
+      "baselineClose": 100.0,
+      "windowEndClose": 101.0,
+      "cumulativeReturn": 0.01,
+      "anchorRule": "on_or_after",
+      "dataSource": "fixture",
+      "causalClaim": false
+    }
+  ],
+  "visualizations": {
+    "schemaVersion": 1,
+    "timeSeries": {
+      "months": [
+        "2026-01",
+        "2026-02"
+      ],
+      "portfolio": [
+        {
+          "month": "2026-01",
+          "eventCount": 1,
+          "impactCount": 2
+        },
+        {
+          "month": "2026-02",
+          "eventCount": 1,
+          "impactCount": 1
+        }
+      ],
+      "companies": [
+        {
+          "companyId": "C001",
+          "values": [
+            1,
+            1
+          ]
+        },
+        {
+          "companyId": "C002",
+          "values": [
+            1,
+            0
+          ]
+        }
+      ]
+    },
+    "sharedEventMatrix": {
+      "companyIds": [
+        "C001",
+        "C002"
+      ],
+      "maximumSharedEventCount": 1,
+      "cells": [
+        {
+          "company1Id": "C001",
+          "company2Id": "C002",
+          "sharedEventCount": 1,
+          "similarity": 0.5
+        }
+      ]
+    }
+  },
+  "network": {
+    "summary": {
+      "databaseNodeCount": 9,
+      "databaseRelationshipCount": 12,
+      "companyCount": 2,
+      "bipartiteNodeCount": 4,
+      "bipartiteRelationshipCount": 3,
+      "logicalEdgeCount": 1,
+      "projectedRelationshipCount": 2,
+      "wccCount": 1,
+      "largestWccSize": 2,
+      "isolateCount": 0,
+      "weightedCommunityCount": 1,
+      "supportThreshold": 1
+    },
+    "nodes": [
+      {
+        "companyId": "C001",
+        "company": "One",
+        "sourceRank": 1,
+        "eventCount": 2,
+        "coeventDegree": 1,
+        "coeventStrength": 1,
+        "isIsolate": false,
+        "wccComponent": "WCC01",
+        "louvainCommunity": "LC01",
+        "pageRank": 0.75
+      },
+      {
+        "companyId": "C002",
+        "company": "Two",
+        "sourceRank": 2,
+        "eventCount": 1,
+        "coeventDegree": 1,
+        "coeventStrength": 1,
+        "isIsolate": false,
+        "wccComponent": "WCC01",
+        "louvainCommunity": "LC01",
+        "pageRank": 0.25
+      }
+    ],
+    "edges": [
+      {
+        "company1Id": "C001",
+        "company1": "One",
+        "company2Id": "C002",
+        "company2": "Two",
+        "sharedEventCount": 1,
+        "meetsSupportThreshold": true
+      }
+    ],
+    "similarities": [
+      {
+        "company1Id": "C001",
+        "company2Id": "C002",
+        "similarity": 0.5,
+        "sharedEventCount": 1,
+        "eventUnionCount": 2,
+        "meetsSupportThreshold": true
+      }
+    ],
+    "components": [
+      {
+        "wccComponent": "WCC01",
+        "companyCount": 2,
+        "companyIds": "C001 | C002",
+        "companies": "One | Two"
+      }
+    ],
+    "communities": [
+      {
+        "louvainCommunity": "LC01",
+        "companyCount": 2,
+        "companyIds": "C001 | C002",
+        "companies": "One | Two"
+      }
+    ],
+    "unweightedCommunities": [
+      {
+        "unweightedLouvainCommunity": "ULC01",
+        "companyCount": 2,
+        "companyIds": "C001 | C002",
+        "companies": "One | Two"
+      }
+    ],
+    "thresholdSensitivity": [
+      {
+        "minimumSharedEvents": 1,
+        "logicalEdgeCount": 1,
+        "density": 1.0,
+        "componentCount": 1,
+        "largestComponentSize": 2,
+        "isolateCount": 0
+      }
+    ],
+    "algorithmSummary": [
+      {
+        "algorithm": "WCC",
+        "mode": "stream",
+        "resultCount": 1,
+        "summary": "one component"
+      }
+    ]
+  },
+  "evaluation": {
+    "summary": {
+      "useCaseCount": 5,
+      "allTasksSucceeded": true,
+      "allResultHashesStable": true,
+      "allRowCountsStable": true,
+      "graphStateUnchanged": true,
+      "qualityChecksPassed": 1,
+      "qualityChecksTotal": 1,
+      "companyScopeCount": 2
+    },
+    "timingProtocol": {
+      "warmup_runs": 1,
+      "measured_runs": 1
+    },
+    "tasks": [
+      {
+        "taskId": "T1",
+        "titleEn": "Task 1",
+        "titleCn": "任务 1",
+        "scope": "fixture",
+        "parameters": {
+          "limit": 1
+        },
+        "querySha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "taskId": "T2",
+        "titleEn": "Task 2",
+        "titleCn": "任务 2",
+        "scope": "fixture",
+        "parameters": {
+          "limit": 2
+        },
+        "querySha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "taskId": "T3",
+        "titleEn": "Task 3",
+        "titleCn": "任务 3",
+        "scope": "fixture",
+        "parameters": {
+          "limit": 3
+        },
+        "querySha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "taskId": "T4",
+        "titleEn": "Task 4",
+        "titleCn": "任务 4",
+        "scope": "fixture",
+        "parameters": {
+          "limit": 4
+        },
+        "querySha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "taskId": "T5",
+        "titleEn": "Task 5",
+        "titleCn": "任务 5",
+        "scope": "fixture",
+        "parameters": {
+          "limit": 5
+        },
+        "querySha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    ],
+    "useCases": [
+      {
+        "taskId": "T1",
+        "titleEn": "Screen",
+        "parametersJson": {},
+        "resultRows": 2,
+        "sourceJoinAutomated": true,
+        "coveragePct": 100.0
+      }
+    ],
+    "performance": [
+      {
+        "taskId": "T1",
+        "resultRows": 2,
+        "medianClientMs": 4.5,
+        "resultHashStable": true
+      }
+    ],
+    "qualityChecks": [
+      {
+        "taskId": "T1",
+        "valuePct": 100.0,
+        "status": "PASS"
+      }
+    ],
+    "runTimings": [
+      {
+        "taskId": "T1",
+        "runIndex": 1,
+        "isWarmup": false
+      }
+    ],
+    "taskResults": {
+      "T1": [
+        {
+          "companyId": "C001",
+          "eventCount": 2
+        },
+        {
+          "companyId": "C002",
+          "eventCount": 1
+        }
+      ],
+      "T2": [
+        {
+          "companyId": "C001",
+          "sourceUrls": []
+        }
+      ],
+      "T3": [
+        {
+          "eventId": "E2",
+          "sourceReportMatched": true
+        }
+      ],
+      "T4": [
+        {
+          "eventId": "E1",
+          "windowDays": 1,
+          "causalClaim": false
+        }
+      ],
+      "T5": [
+        {
+          "company1Id": "C001",
+          "company2Id": "C002",
+          "sharedEventCount": 1,
+          "sharedEventIds": [
+            "E1"
+          ]
+        }
+      ]
+    }
+  },
+  "disclaimers": [
+    {
+      "code": "coverage-boundary",
+      "titleCn": "新闻范围",
+      "titleEn": "News coverage",
+      "bodyCn": "该公开演示仅使用虚构公司和事件，用于检查界面与研究助手功能。",
+      "bodyEn": "This public demonstration uses fictional companies and events to exercise the interface and research assistant."
+    },
+    {
+      "code": "internal-completeness",
+      "titleCn": "数据完整不等于完全准确",
+      "titleEn": "Complete records can still contain errors",
+      "bodyCn": "每条结果都有证据和来源，但自动提取仍可能出错。请回到原始报道核实。",
+      "bodyEn": "Each result has evidence and a source, but automated extraction can still be wrong. Check the original article."
+    },
+    {
+      "code": "descriptive-market-context",
+      "titleCn": "价格变化不是因果结论",
+      "titleEn": "Price changes do not prove cause",
+      "bodyCn": "前后 1、3、7 个交易日的收益只显示报道发布前后的价格变化，不代表事件导致了变化。",
+      "bodyEn": "Returns for 1, 3 and 7 trading days before and after publication show price context. They do not prove that the event caused a move."
+    },
+    {
+      "code": "exploratory-network",
+      "titleCn": "网络连线不是商业关系",
+      "titleEn": "Network lines are not business links",
+      "bodyCn": "连线表示公司出现在相同新闻事件中，不代表它们存在商业关系或同样重要。",
+      "bodyEn": "A line means that companies appear in the same news events. It does not confirm a business relationship or equal importance."
+    },
+    {
+      "code": "latency-boundary",
+      "titleCn": "速度仅供参考",
+      "titleEn": "Speed is a guide only",
+      "bodyCn": "查询时间在本机数据已载入后测得，不包含数据库启动、网络传输和页面显示时间。",
+      "bodyEn": "Query times were measured on this computer after the data had loaded. They exclude database startup, network delivery and page rendering."
+    }
+  ]
+}

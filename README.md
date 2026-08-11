@@ -82,6 +82,8 @@ src/
   evaluate_pipeline.py            Ablation and threshold-sensitivity reports
   export_analyst_report.py        Read-only analyst-report package
   build_chapter4_results.py       Reproducible dissertation result package
+  build_frontend_snapshot.py      Validated dashboard snapshot builder
+frontend/                         Analyst dashboard and research assistant
 tests/                             Unit and configuration tests
 run_full_pipeline.ps1             PowerShell pipeline entry point
 run_gds_analysis.ps1              Read-only GDS analysis entry point
@@ -89,11 +91,44 @@ run_analyst_use_case_evaluation.ps1
                                   Read-only analyst use-case evaluation
 run_analyst_report.ps1            Neo4j analyst-report entry point
 run_chapter4_results.ps1          Chapter 4 result-package entry point
+run_frontend_dashboard.ps1        Dashboard snapshot/build/dev entry point
 ```
 
 Raw API responses, market-price files, model caches, database exports,
 dissertation drafts and local credentials are intentionally excluded from the
 public repository.
+
+## Analyst dashboard and research assistant
+
+The `frontend/` application provides a bilingual, read-only interface over a
+validated static snapshot. Its research assistant can explain the selected
+company, event or company pair through constrained, read-only tools. The
+browser receives neither database credentials nor an API key, and the
+assistant is instructed not to present descriptive market windows as causal or
+to provide investment advice.
+
+The public repository contains a small synthetic snapshot so that reviewers
+can build the interface and exercise the assistant without licensed news text
+or private infrastructure. Authorised users can replace it with the complete
+research snapshot by running:
+
+```powershell
+.\run_frontend_dashboard.ps1 -Stage snapshot
+```
+
+To run the interface, install the pinned Node.js dependencies and start the
+development server:
+
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+Without an API key, the assistant returns a deterministic checked-data preview.
+Optional model-generated explanations use a server-side `OPENAI_API_KEY` from
+the ignored `frontend/.dev.vars` file; the key is never exposed to browser
+code. See `frontend/README.md` for the data contract and security boundaries.
 
 ## Environment
 

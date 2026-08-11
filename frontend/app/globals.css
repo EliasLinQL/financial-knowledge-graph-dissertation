@@ -1,0 +1,54 @@
+:root {
+  --ink: #14231d;
+  --muted: #64716b;
+  --paper: #f4f1e8;
+  --surface: #fffdf8;
+  --line: #dcd8cc;
+  --accent: #0b6b50;
+  --accent-soft: #dcebe4;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 95% 0%, rgba(11, 107, 80, 0.08), transparent 26rem),
+    var(--paper);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", "PingFang SC", sans-serif;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: #b9ddcc;
+  color: #102018;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(11, 107, 80, 0.32);
+  outline-offset: 2px;
+}
