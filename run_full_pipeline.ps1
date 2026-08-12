@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "dedup", "kg", "analysis", "gds", "evaluation", "usecases", "report", "results")]
+    [ValidateSet("all", "market", "news", "downstream", "coverage", "event", "nlp", "dedup", "kg", "analysis", "gds", "evaluation", "usecases", "report")]
     [string]$Stage = "downstream",
 
     [string]$ConfigPath = "config\config.yaml",
@@ -226,20 +226,6 @@ function Invoke-ReportStage {
     }
 }
 
-function Invoke-ResultsStage {
-    $ResultsScript = Join-Path $ProjectRoot "run_chapter4_results.ps1"
-    if (-not (Test-Path -LiteralPath $ResultsScript)) {
-        throw "Chapter 4 results entry point was not found: $ResultsScript"
-    }
-    Write-Host ""
-    Write-Host "========== Reproducible Chapter 4 results package ==========" -ForegroundColor Cyan
-    & $ResultsScript -ConfigPath $Config
-    $ExitCode = $LASTEXITCODE
-    if ($null -ne $ExitCode -and $ExitCode -ne 0) {
-        throw "Chapter 4 results package failed with exit code $ExitCode."
-    }
-}
-
 switch ($Stage) {
     "all" {
         Invoke-MarketStage
@@ -311,9 +297,6 @@ switch ($Stage) {
     }
     "report" {
         Invoke-ReportStage
-    }
-    "results" {
-        Invoke-ResultsStage
     }
 }
 

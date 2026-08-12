@@ -536,7 +536,7 @@ def gds_settings(config: Mapping[str, Any]) -> GdsSettings:
     if similarity_metric != "JACCARD":
         raise ValueError(
             "gds_analysis.node_similarity.similarity_metric must be JACCARD "
-            "because the exported cross-check and dissertation interpretation use Jaccard."
+            "because the exported cross-check uses Jaccard."
         )
 
     return GdsSettings(

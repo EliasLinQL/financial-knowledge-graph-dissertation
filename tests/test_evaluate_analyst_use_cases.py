@@ -313,7 +313,7 @@ class EvaluateAnalystUseCasesTests(unittest.TestCase):
                 manifest["output_sha256"], collect_output_hashes(output)
             )
 
-    def test_manifest_exposes_the_read_only_contract_used_by_chapter4(self) -> None:
+    def test_manifest_exposes_the_read_only_contract(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             config_path = output / "config.yaml"

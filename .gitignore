@@ -46,7 +46,7 @@ data/evaluation/
 # Superseded local inputs
 data/config/company_candidates.csv
 
-# Dissertation drafts and internal working notes
+# Local writing and internal working notes
 docs/
 *.docx
 *.xlsx

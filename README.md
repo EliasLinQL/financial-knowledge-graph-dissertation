@@ -1,9 +1,9 @@
 # Financial Event Knowledge Graph
 
-This repository contains the implementation for a dissertation study of
-company-related news events, market context and knowledge-graph analysis. It
-combines Guardian news, Twelve Data market prices, rule-based extraction, local
-Natural Language Inference (NLI), Neo4j and Neo4j Graph Data Science (GDS).
+This repository implements a financial-event knowledge graph for analysing
+company-related news, market context and graph structure. It combines Guardian
+news, Twelve Data market prices, rule-based extraction, local Natural Language
+Inference (NLI), Neo4j and Neo4j Graph Data Science (GDS).
 
 The configured study covers 25 companies from 1 July 2025 to 30 June 2026.
 Market returns are descriptive context only; they are not evidence that a news
@@ -20,7 +20,7 @@ event caused a price movement.
 - unit, integration-contract and frontend tests.
 
 Raw API responses, licensed article text, market-price files, model caches,
-database exports, credentials and dissertation drafts are not published.
+database exports, credentials and local working documents are not published.
 
 ## Quick start: dashboard and research assistant
 
@@ -69,7 +69,7 @@ Production build and deployment guidance is in
 5. Cluster cross-article mentions into canonical events.
 6. Align event-company pairs with signed market windows.
 7. Build and validate a Neo4j import package.
-8. Export evaluation, analyst-report and dissertation-result packages.
+8. Export evaluation and analyst-report packages.
 9. Run read-only GDS and analyst-use-case evaluations against the frozen graph.
 
 Every canonical event retains source provenance through
@@ -88,7 +88,6 @@ run_full_pipeline.ps1              Main pipeline entry point
 run_gds_analysis.ps1               Read-only GDS entry point
 run_analyst_use_case_evaluation.ps1
 run_analyst_report.ps1             Analyst-report export
-run_chapter4_results.ps1           Dissertation-results package
 run_frontend_dashboard.ps1         Dashboard snapshot/build/dev entry point
 ```
 
@@ -153,7 +152,6 @@ Auxiliary stages can be run independently:
 .\run_full_pipeline.ps1 -Stage gds
 .\run_full_pipeline.ps1 -Stage usecases
 .\run_full_pipeline.ps1 -Stage report
-.\run_full_pipeline.ps1 -Stage results
 ```
 
 `gds` and `usecases` require a running Neo4j instance containing the reviewed
